@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>Pedido de Reposição</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="page" id="app">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">REPOSIÇÃO DE PRODUTOS</p>
+        <h1>Pedido de reposição</h1>
+        <p class="subtitle">Escolha a loja e o produto para ver quanto pedir.</p>
+      </div>
+      <button id="refreshBtn" class="refresh" type="button" aria-label="Atualizar dados" title="Atualizar dados">↻</button>
+    </header>
+
+    <div id="demoNotice" class="notice" role="status">
+      <span class="notice-dot"></span>
+      Dados de demonstração
+    </div>
+
+    <section class="selection" aria-label="Selecionar loja e produto">
+      <label class="field">
+        <span class="step">1</span>
+        <span class="label-text">Escolha a loja</span>
+        <select id="clientSelect" aria-label="Escolha a loja"></select>
+      </label>
+
+      <label class="field">
+        <span class="step">2</span>
+        <span class="label-text">Escolha o produto</span>
+        <select id="productSelect" aria-label="Escolha o produto"></select>
+      </label>
+    </section>
+
+    <section id="result" class="result" aria-live="polite">
+      <div class="stock-card">
+        <p>ESTOQUE ATUAL</p>
+        <div class="number-line"><strong id="stockValue">—</strong><span>unidades</span></div>
+      </div>
+
+      <div class="order-card">
+        <p>PEDIDO SUGERIDO</p>
+        <div class="order-action">PEDIR</div>
+        <div class="number-line order-number"><strong id="orderValue">—</strong><span>unidades</span></div>
+        <p class="order-help">Este é o pedido recomendado para esta loja.</p>
+      </div>
+    </section>
+
+    <div id="emptyState" class="empty hidden">
+      Não há dados disponíveis para esta seleção.
+    </div>
+
+    <footer class="footer">
+      <span id="updatedAt">Dados ainda não atualizados</span>
+      <button id="adminOpen" class="admin-link hidden" type="button">Configurar</button>
+    </footer>
+  </main>
+
+  <div id="adminModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+    <div class="modal-card">
+      <h2 id="adminTitle">Conexão com n8n</h2>
+      <p>Essa configuração é feita uma vez pelo responsável. O vendedor não precisa acessar esta tela.</p>
+      <label>URL do webhook
+        <input id="apiUrl" type="url" placeholder="https://seu-n8n/webhook/dashboard-reposicao-live">
+      </label>
+      <label>Chave (opcional)
+        <input id="apiKey" type="password" autocomplete="off" placeholder="x-dashboard-key">
+      </label>
+      <div id="testMessage" class="test-message"></div>
+      <div class="modal-actions">
+        <button id="adminClose" class="secondary" type="button">Cancelar</button>
+        <button id="saveTest" class="primary" type="button">Salvar e testar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="demo-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
