@@ -1,29 +1,21 @@
-# Tela do Vendedor — Reposição Simples
+# Site do Vendedor — estoque → planilha → sugestão
 
-Interface propositalmente simples para vendedores: **Loja → Produto → Estoque atual → Pedido sugerido**.
+Fluxo do vendedor:
+1. Digita o código de 6 números.
+2. Escolhe uma das 2 lojas liberadas para ele.
+3. Digita o estoque atual dos 5 produtos.
+4. Toca em **SALVAR ESTOQUE E CALCULAR PEDIDO**.
+5. O site envia os dados ao n8n, que atualiza a planilha e devolve a sugestão de pedido.
 
-## Para testar
-Abra `index.html`. O site inicia em modo demonstração.
+## Configuração
+Abra o site com `?config=1`, por exemplo:
+`https://seusite.com/?config=1`
 
-## Para conectar ao mesmo n8n do dashboard do gestor
-O site usa o mesmo formato JSON do workflow `N8N_DASHBOARD_REPOSICAO_GOOGLE_SHEETS.json`.
+Cole somente a Production URL do webhook GET:
+`https://SEU-N8N/webhook/reposicao-vendedor`
 
-1. Deixe o workflow do n8n ativo.
-2. Abra o site acrescentando `?config=1` ao endereço. Exemplo local: `index.html?config=1`.
-3. Clique em **Configurar** no rodapé.
-4. Cole a Production URL do webhook.
-5. Clique em **Salvar e testar**.
+O site deriva automaticamente o endpoint POST:
+`https://SEU-N8N/webhook/reposicao-vendedor-atualizar`
 
-Depois disso, abra normalmente sem `?config=1`. O botão de configuração fica escondido para o vendedor.
-
-## Comportamento
-- A lista de lojas e produtos vem automaticamente da API.
-- Para cada combinação, o site usa o registro mais recente (ex.: maior número de `Semana`).
-- Valores são exibidos arredondados em unidades inteiras.
-- Atualiza automaticamente a cada 60 segundos e também pelo botão ↻.
-
-## Atalho por loja/produto
-Também é possível pré-selecionar uma loja e produto na URL:
-`index.html?cliente=Nome%20da%20Loja&produto=Nome%20do%20Produto`
-
-Isso pode ser usado futuramente para criar um link ou QR Code por loja.
+## Importante
+O POST é enviado como `text/plain` contendo JSON para evitar problemas de CORS/preflight em hospedagens estáticas como GitHub Pages.
