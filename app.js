@@ -16,7 +16,9 @@
   const n=v=>Number(String(v??0).replace(',','.'))||0;
   const fmt=v=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(Math.max(0,Math.round(n(v))));
   const esc=v=>clean(v).replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const url=()=>localStorage.getItem('reposicao_v4_seller_url')||'';
+  const DEFAULT_API_URL='https://app.vps7376.panel.icontainer.cloud/webhook/reposicao-vendedor';
+  const forceDemo=()=>new URLSearchParams(location.search).get('demo')==='1'||localStorage.getItem('reposicao_v4_force_demo')==='1';
+  const url=()=>forceDemo()?'':(localStorage.getItem('reposicao_v4_seller_url')||DEFAULT_API_URL);
   const code=()=>localStorage.getItem('reposicao_v4_code')||'';
   const isConfig=()=>new URLSearchParams(location.search).get('config')==='1';
   if(isConfig()){els.adminOpen.classList.remove('hidden');els.adminOpenLogin.classList.remove('hidden')}
@@ -32,6 +34,7 @@
       return base.replace(/\/+$/,'').replace(/\/reposicao-vendedor$/,kind==='calcular'?'/reposicao-vendedor-calcular':'/reposicao-vendedor-confirmar');
     }
   }
+  async function jsonResponse(res){const text=await res.text();if(!text.trim())throw new Error(`Servidor sem resposta (HTTP ${res.status}).`);let obj;try{obj=JSON.parse(text)}catch{throw new Error(`Resposta inválida do servidor (HTTP ${res.status}).`)}return obj}
   function normalizeState(rows){return (Array.isArray(rows)?rows:[]).map(r=>({
     chave:clean(r.chave??r.Chave), vendedor:clean(r.vendedor??r.Vendedor), cliente:clean(r.cliente??r.Cliente), produto:clean(r.produto??r.Produto),
     estoqueAtual:n(r.estoqueAtual??r['Estoque Atual']), estoqueIdeal:n(r.estoqueIdeal??r['Estoque Ideal']), sugestao:n(r.sugestao??r['Sugestão Reposição']),
@@ -52,7 +55,7 @@
       else{
         const sep=url().includes('?')?'&':'?';
         const res=await fetch(`${url()}${sep}codigo=${encodeURIComponent(c)}`,{headers:{Accept:'application/json'},cache:'no-store'});
-        data=await res.json(); if(!res.ok||data.ok===false)throw new Error(data.error||'Acesso não autorizado.');
+        data=await jsonResponse(res); if(!res.ok||data.ok===false)throw new Error(data.error||'Acesso não autorizado.');
       }
       if(!data)throw new Error('Código não encontrado.');
       session={codigo:c,vendedor:data.vendedor||'Vendedor',lojas:data.lojas||[]}; stateRows=normalizeState(data.rows||[]);
@@ -101,7 +104,7 @@
       if(!url()) data=demoCalculate(els.client.value,items);
       else{
         const res=await fetch(endpoint('calcular'),{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8','Accept':'application/json'},body:JSON.stringify({codigo:session.codigo,loja:els.client.value,itens:items}),cache:'no-store'});
-        data=await res.json(); if(!res.ok||data.ok===false)throw new Error(data.error||'Não foi possível calcular.');
+        data=await jsonResponse(res); if(!res.ok||data.ok===false)throw new Error(data.error||'Não foi possível calcular.');
       }
       visitId=data.visitId||`VIS-${Date.now()}`;calculated=normalizeState(data.rows).map(r=>({...r,visitId}));
       renderReview();
@@ -150,7 +153,7 @@
       if(!url())data=demoConfirm(els.client.value,items);
       else{
         const res=await fetch(endpoint('confirmar'),{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8','Accept':'application/json'},body:JSON.stringify({codigo:session.codigo,loja:els.client.value,visitId,itens:items}),cache:'no-store'});
-        data=await res.json();if(!res.ok||data.ok===false)throw new Error(data.error||'Não foi possível confirmar o pedido.');
+        data=await jsonResponse(res);if(!res.ok||data.ok===false)throw new Error(data.error||'Não foi possível confirmar o pedido.');
       }
       items.forEach(it=>{const r=stateRows.find(x=>x.cliente===els.client.value&&x.produto===it.produto);if(r){r.estoqueAtual=it.estoqueAtual;r.sugestao=it.sugestao;r.ultimoPedido=it.pedidoConfirmado;r.vendaEstimada=it.vendaEstimada;r.atualizadoEm=data.updatedAt||new Date().toISOString()}});
       els.reviewView.classList.add('hidden');els.successView.classList.remove('hidden');els.protocol.textContent=data.protocol||visitId||'REGISTRADO';window.scrollTo({top:0,behavior:'smooth'});
@@ -161,6 +164,6 @@
   function openConfig(){els.apiUrl.value=url();els.testMessage.textContent='';els.modal.classList.remove('hidden')}
   function closeConfig(){els.modal.classList.add('hidden')}
   els.loginForm.addEventListener('submit',e=>{e.preventDefault();login(els.accessCode.value)});els.logout.addEventListener('click',logout);els.client.addEventListener('change',startVisit);els.stockForm.addEventListener('submit',calculate);els.backToCount.addEventListener('click',()=>{els.reviewView.classList.add('hidden');els.countView.classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'})});els.confirmBtn.addEventListener('click',confirmOrder);els.newVisit.addEventListener('click',startVisit);els.refresh.addEventListener('click',()=>login(session?.codigo||code(),true));
-  [els.adminOpen,els.adminOpenLogin].forEach(b=>b.addEventListener('click',openConfig));els.adminClose.addEventListener('click',closeConfig);els.modal.addEventListener('click',e=>{if(e.target===els.modal)closeConfig()});els.saveConfig.addEventListener('click',()=>{const v=els.apiUrl.value.trim();if(v&&!/^https?:\/\//i.test(v)){els.testMessage.textContent='Informe uma URL completa começando com http ou https.';return}localStorage.setItem('reposicao_v4_seller_url',v);els.testMessage.textContent='Configuração salva.';setTimeout(()=>location.reload(),500)});els.clearConfig.addEventListener('click',()=>{localStorage.removeItem('reposicao_v4_seller_url');els.testMessage.textContent='Modo demonstração ativado.';setTimeout(()=>location.reload(),500)});
+  [els.adminOpen,els.adminOpenLogin].forEach(b=>b.addEventListener('click',openConfig));els.adminClose.addEventListener('click',closeConfig);els.modal.addEventListener('click',e=>{if(e.target===els.modal)closeConfig()});els.saveConfig.addEventListener('click',()=>{const v=els.apiUrl.value.trim();if(v&&!/^https?:\/\//i.test(v)){els.testMessage.textContent='Informe uma URL completa começando com http ou https.';return}localStorage.setItem('reposicao_v4_seller_url',v||DEFAULT_API_URL);localStorage.removeItem('reposicao_v4_force_demo');els.testMessage.textContent='Configuração salva.';setTimeout(()=>location.reload(),500)});els.clearConfig.addEventListener('click',()=>{localStorage.removeItem('reposicao_v4_seller_url');localStorage.setItem('reposicao_v4_force_demo','1');els.testMessage.textContent='Modo demonstração ativado.';setTimeout(()=>location.reload(),500)});
   const saved=code();if(saved)login(saved,true);else setTimeout(()=>els.accessCode.focus(),100);
 })();
