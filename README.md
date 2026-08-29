@@ -1,21 +1,10 @@
-# Site do Vendedor — estoque → planilha → sugestão
+# Site do Vendedor V4.1
 
-Fluxo do vendedor:
-1. Digita o código de 6 números.
-2. Escolhe uma das 2 lojas liberadas para ele.
-3. Digita o estoque atual dos 5 produtos.
-4. Toca em **SALVAR ESTOQUE E CALCULAR PEDIDO**.
-5. O site envia os dados ao n8n, que atualiza a planilha e devolve a sugestão de pedido.
+Compatível com `N8N_REPOSICAO_INTELIGENTE_V4.1_CORRIGIDO.json`.
 
-## Configuração
-Abra o site com `?config=1`, por exemplo:
-`https://seusite.com/?config=1`
+Fluxo: login → uma das 2 lojas → estoque dos 5 produtos → calcular → revisar → confirmar pedido.
 
-Cole somente a Production URL do webhook GET:
+Configuração: abra com `?config=1` e informe a Production URL:
 `https://SEU-N8N/webhook/reposicao-vendedor`
 
-O site deriva automaticamente o endpoint POST:
-`https://SEU-N8N/webhook/reposicao-vendedor-atualizar`
-
-## Importante
-O POST é enviado como `text/plain` contendo JSON para evitar problemas de CORS/preflight em hospedagens estáticas como GitHub Pages.
+O site deriva automaticamente `/reposicao-vendedor-calcular` e `/reposicao-vendedor-confirmar`.

@@ -2,184 +2,165 @@
   const $=s=>document.querySelector(s);
   const els={
     loginView:$('#loginView'),mainView:$('#mainView'),loginForm:$('#loginForm'),accessCode:$('#accessCode'),loginMessage:$('#loginMessage'),
-    sellerName:$('#sellerName'),logout:$('#logoutBtn'),client:$('#clientSelect'),productsList:$('#productsList'),stockForm:$('#stockForm'),
-    calculateBtn:$('#calculateBtn'),saveMessage:$('#saveMessage'),empty:$('#emptyState'),updated:$('#updatedAt'),refresh:$('#refreshBtn'),notice:$('#demoNotice'),
-    adminOpen:$('#adminOpen'),adminOpenLogin:$('#adminOpenLogin'),modal:$('#adminModal'),apiUrl:$('#apiUrl'),adminClose:$('#adminClose'),saveConfig:$('#saveConfig'),clearConfig:$('#clearConfig'),testMessage:$('#testMessage')
+    sellerName:$('#sellerName'),logout:$('#logoutBtn'),client:$('#clientSelect'),countView:$('#countView'),products:$('#productsList'),stockForm:$('#stockForm'),
+    countMessage:$('#countMessage'),calculateBtn:$('#calculateBtn'),reviewView:$('#reviewView'),reviewList:$('#reviewList'),suggestedTotal:$('#suggestedTotal'),
+    confirmedTotal:$('#confirmedTotal'),deviationTotal:$('#deviationTotal'),deviationBox:$('#deviationBox'),confirmMessage:$('#confirmMessage'),
+    backToCount:$('#backToCount'),confirmBtn:$('#confirmOrderBtn'),successView:$('#successView'),protocol:$('#protocolValue'),newVisit:$('#newVisitBtn'),
+    updated:$('#updatedAt'),refresh:$('#refreshBtn'),notice:$('#demoNotice'),adminOpen:$('#adminOpen'),adminOpenLogin:$('#adminOpenLogin'),modal:$('#adminModal'),
+    apiUrl:$('#apiUrl'),testMessage:$('#testMessage'),adminClose:$('#adminClose'),saveConfig:$('#saveConfig'),clearConfig:$('#clearConfig')
   };
-  const PRODUCT_ORDER=['Pão sovado','Pão de Sanduiche','Pão de HOT DOG','Pão de Hamburguer','Pão Caseiro'];
-  let session=null;
-  let rows=[];
-  let lastResult=[];
+  const PRODUCTS=['Pão sovado','Pão de Sanduiche','Pão de HOT DOG','Pão de Hamburguer','Pão Caseiro'];
+  const DEMO=window.REPOSICAO_DEMO_DATA||{sellers:[],state:[],history:[]};
+  let session=null, stateRows=[], calculated=[], visitId='';
   const clean=v=>String(v??'').trim();
-  const num=v=>{if(typeof v==='number')return Number.isFinite(v)?v:0;const s=clean(v).replace(/\s/g,'');if(/^[-+]?\d{1,3}(\.\d{3})*,\d+$/.test(s))return Number(s.replace(/\./g,'').replace(',','.'))||0;return Number(s.replace(',','.'))||0};
-  const fmt=v=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(Math.max(0,Math.round(num(v))));
-  const esc=v=>String(v??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const apiUrl=()=>localStorage.getItem('rv3_api_url')||localStorage.getItem('rv2_api_url')||'';
-  const savedCode=()=>localStorage.getItem('rv3_access_code')||localStorage.getItem('rv2_access_code')||'';
-  const normalizeRows=raw=>(Array.isArray(raw)?raw:Array.isArray(raw?.rows)?raw.rows:[]).map(r=>({
-    cliente:clean(r.cliente??r.Cliente),produto:clean(r.produto??r.Produto),estoqueAtual:num(r.estoqueAtual??r['Estoque Atual']),
-    estoqueIdeal:num(r.estoqueIdeal??r['Estoque Ideal']??(num(r.estoqueAtual)+num(r.sugestao))),
-    sugestao:num(r.sugestao??r['Sugestão Reposição']??r['Sugestão de Reposição']),atualizadoEm:clean(r.atualizadoEm??r['Atualizado em'])
-  })).filter(r=>r.cliente&&r.produto);
+  const n=v=>Number(String(v??0).replace(',','.'))||0;
+  const fmt=v=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(Math.max(0,Math.round(n(v))));
+  const esc=v=>clean(v).replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const url=()=>localStorage.getItem('reposicao_v4_seller_url')||'';
+  const code=()=>localStorage.getItem('reposicao_v4_code')||'';
+  const isConfig=()=>new URLSearchParams(location.search).get('config')==='1';
+  if(isConfig()){els.adminOpen.classList.remove('hidden');els.adminOpenLogin.classList.remove('hidden')}
 
-  function updateEndpoint(){
-    const base=apiUrl();
-    if(!base)return '';
+  function endpoint(kind){
+    const base=url(); if(!base)return '';
     try{
-      const u=new URL(base);
-      const p=u.pathname.replace(/\/+$/,'');
-      u.pathname=p.endsWith('/reposicao-vendedor')?p.replace(/\/reposicao-vendedor$/,'/reposicao-vendedor-atualizar'):`${p}-atualizar`;
+      const u=new URL(base), p=u.pathname.replace(/\/+$/,'');
+      if(kind==='calcular')u.pathname=p.replace(/\/reposicao-vendedor$/,'/reposicao-vendedor-calcular');
+      if(kind==='confirmar')u.pathname=p.replace(/\/reposicao-vendedor$/,'/reposicao-vendedor-confirmar');
       return u.toString();
-    }catch{return base.replace(/\/+$/,'').replace(/\/reposicao-vendedor$/,'/reposicao-vendedor-atualizar')}
+    }catch{
+      return base.replace(/\/+$/,'').replace(/\/reposicao-vendedor$/,kind==='calcular'?'/reposicao-vendedor-calcular':'/reposicao-vendedor-confirmar');
+    }
   }
-
-  function setLoggedOut(message=''){
-    session=null;rows=[];lastResult=[];els.mainView.classList.add('hidden');els.loginView.classList.remove('hidden');els.refresh.classList.add('hidden');
-    els.loginMessage.textContent=message;els.accessCode.value='';setTimeout(()=>els.accessCode.focus(),50);
+  function normalizeState(rows){return (Array.isArray(rows)?rows:[]).map(r=>({
+    chave:clean(r.chave??r.Chave), vendedor:clean(r.vendedor??r.Vendedor), cliente:clean(r.cliente??r.Cliente), produto:clean(r.produto??r.Produto),
+    estoqueAtual:n(r.estoqueAtual??r['Estoque Atual']), estoqueIdeal:n(r.estoqueIdeal??r['Estoque Ideal']), sugestao:n(r.sugestao??r['Sugestão Reposição']),
+    ultimoPedido:n(r.ultimoPedido??r['Último Pedido Confirmado']), vendaEstimada:n(r.vendaEstimada??r['Venda Estimada Último Ciclo']), trocas:n(r.trocas??r['Trocas Último Ciclo']),
+    atualizadoEm:clean(r.atualizadoEm??r['Última Atualização']??r['Atualizado em'])
+  })).filter(r=>r.cliente&&r.produto)}
+  function demoLogin(c){
+    const s=DEMO.sellers.find(x=>String(x.codigo)===c&&x.ativo!==false); if(!s)return null;
+    return {ok:true,vendedor:s.vendedor,lojas:s.lojas,rows:DEMO.state.filter(r=>s.lojas.includes(r.cliente)),updatedAt:new Date().toISOString(),demo:true};
   }
-  function setLoggedIn(data,isDemo){
-    session={vendedor:data.vendedor||'Vendedor',lojas:Array.isArray(data.lojas)?data.lojas:[]};
-    rows=normalizeRows(data.rows);lastResult=[];
-    els.sellerName.textContent=session.vendedor;els.loginView.classList.add('hidden');els.mainView.classList.remove('hidden');els.refresh.classList.remove('hidden');
-    els.notice.classList.toggle('hidden',!isDemo);fillClients();
-    const d=new Date(data.updatedAt||Date.now());els.updated.textContent=`Dados carregados: ${new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(d)}`;
-  }
-  function demoLogin(code){
-    const u=(window.DEMO_SELLER_USERS||[]).find(x=>x.codigo===code);if(!u)return null;
-    return {ok:true,vendedor:u.vendedor,lojas:u.lojas,rows:(window.DEMO_SELLER_ROWS||[]).filter(r=>u.lojas.includes(r.cliente)),updatedAt:new Date().toISOString()};
-  }
-  async function login(code,quiet=false){
-    code=clean(code).replace(/\D/g,'');
-    if(code.length!==6){if(!quiet)els.loginMessage.textContent='Digite os 6 números do seu código.';return false}
+  async function login(c,quiet=false){
+    c=clean(c).replace(/\D/g,'');
+    if(c.length!==6){if(!quiet)els.loginMessage.textContent='Digite os 6 números do seu código.';return false}
     if(!quiet)els.loginMessage.textContent='Entrando...';
-    const url=apiUrl();
-    if(!url){const data=demoLogin(code);if(!data){els.loginMessage.textContent='Código inválido para a demonstração.';return false}localStorage.setItem('rv3_access_code',code);setLoggedIn(data,true);return true}
     try{
-      const sep=url.includes('?')?'&':'?';
-      const res=await fetch(`${url}${sep}codigo=${encodeURIComponent(code)}`,{headers:{Accept:'application/json'},cache:'no-store'});
-      const data=await res.json().catch(()=>({ok:false,error:`Erro HTTP ${res.status}`}));
-      if(!res.ok||data.ok===false)throw new Error(data.error||'Código de acesso inválido.');
-      const normalized=normalizeRows(data);
-      if(!normalized.length)throw new Error('Acesso válido, mas não há produtos cadastrados para suas lojas.');
-      localStorage.setItem('rv3_access_code',code);setLoggedIn({...data,rows:normalized},false);return true;
-    }catch(e){if(!quiet)els.loginMessage.textContent=e.message||'Não foi possível entrar.';else els.saveMessage.textContent='Não foi possível atualizar os dados agora.';return false}
+      let data;
+      if(!url()) data=demoLogin(c);
+      else{
+        const sep=url().includes('?')?'&':'?';
+        const res=await fetch(`${url()}${sep}codigo=${encodeURIComponent(c)}`,{headers:{Accept:'application/json'},cache:'no-store'});
+        data=await res.json(); if(!res.ok||data.ok===false)throw new Error(data.error||'Acesso não autorizado.');
+      }
+      if(!data)throw new Error('Código não encontrado.');
+      session={codigo:c,vendedor:data.vendedor||'Vendedor',lojas:data.lojas||[]}; stateRows=normalizeState(data.rows||[]);
+      if(!stateRows.length)throw new Error('Nenhum produto cadastrado para suas lojas.');
+      localStorage.setItem('reposicao_v4_code',c); renderLoggedIn(data.demo||!url(),data.updatedAt); return true;
+    }catch(e){if(!quiet)els.loginMessage.textContent=e.message||'Não foi possível entrar.';return false}
   }
-  function fillClients(){
-    const allowed=session?.lojas?.length?session.lojas:[...new Set(rows.map(r=>r.cliente))];
-    const available=allowed.filter(l=>rows.some(r=>r.cliente===l));
-    els.client.innerHTML=available.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');renderProducts();
+  function renderLoggedIn(demo,updatedAt){
+    els.loginView.classList.add('hidden');els.mainView.classList.remove('hidden');els.refresh.classList.remove('hidden');els.sellerName.textContent=session.vendedor;
+    els.notice.classList.toggle('hidden',!demo); els.client.innerHTML=session.lojas.filter(l=>stateRows.some(r=>r.cliente===l)).map(l=>`<option>${esc(l)}</option>`).join('');
+    els.updated.textContent=`Dados carregados: ${new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(updatedAt||Date.now()))}`;
+    startVisit();
   }
-  function storeRows(){
-    const selected=els.client.value;
-    return rows.filter(r=>r.cliente===selected).sort((a,b)=>{
-      const ai=PRODUCT_ORDER.indexOf(a.produto),bi=PRODUCT_ORDER.indexOf(b.produto);
-      if(ai!==-1||bi!==-1)return (ai===-1?999:ai)-(bi===-1?999:bi);
-      return a.produto.localeCompare(b.produto,'pt-BR');
-    });
-  }
-  function renderProducts(){
-    lastResult=[];els.saveMessage.textContent='';
-    const list=storeRows();
-    if(!list.length){els.productsList.innerHTML='';els.productsList.classList.add('hidden');els.empty.classList.remove('hidden');els.calculateBtn.disabled=true;return}
-    els.productsList.classList.remove('hidden');els.empty.classList.add('hidden');els.calculateBtn.disabled=false;
-    els.productsList.innerHTML=list.map((r,i)=>`<article class="product-card" data-product="${esc(r.produto)}">
-      <div class="product-top">
-        <h3>${esc(r.produto)}</h3>
-        <span class="last-stock">Último estoque: <strong>${fmt(r.estoqueAtual)}</strong></span>
-      </div>
-      <label class="stock-input-wrap">
-        <span>ESTOQUE NA LOJA AGORA</span>
-        <div class="stock-input-line">
-          <input class="stock-input" data-index="${i}" data-product="${esc(r.produto)}" type="number" min="0" max="99999" step="1" inputmode="numeric" placeholder="0" required aria-label="Estoque atual de ${esc(r.produto)}">
-          <small>unidades</small>
-        </div>
-      </label>
-      <div class="suggestion-box hidden" data-result="${i}">
-        <span>PEDIDO RECOMENDADO</span>
-        <div class="suggestion-value"><b>PEDIR</b><strong>—</strong><small>unidades</small></div>
-      </div>
+  function startVisit(){calculated=[];visitId='';els.reviewView.classList.add('hidden');els.successView.classList.add('hidden');els.countView.classList.remove('hidden');renderCount();window.scrollTo({top:0,behavior:'smooth'})}
+  function storeRows(){return stateRows.filter(r=>r.cliente===els.client.value).sort((a,b)=>PRODUCTS.indexOf(a.produto)-PRODUCTS.indexOf(b.produto))}
+  function renderCount(){
+    els.countMessage.textContent=''; const rows=storeRows();
+    els.products.innerHTML=rows.map((r,i)=>`<article class="product-card">
+      <div class="product-top"><h3>${esc(r.produto)}</h3><div class="last-data">Último estoque: <strong>${fmt(r.estoqueAtual)}</strong><br>Último pedido: <strong>${fmt(r.ultimoPedido)}</strong></div></div>
+      <label class="stock-box"><span>ESTOQUE NA LOJA AGORA</span><div class="stock-line"><input class="stock-input" data-product="${esc(r.produto)}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" required><small>unidades</small></div></label>
     </article>`).join('');
   }
-  function collectStock(){
-    const inputs=[...els.productsList.querySelectorAll('.stock-input')];
-    const items=[];
-    for(const input of inputs){
-      const raw=clean(input.value);
-      const value=Number(raw);
-      if(raw===''||!Number.isFinite(value)||value<0||!Number.isInteger(value)){
-        input.focus();input.classList.add('input-error');
-        throw new Error('Preencha o estoque dos 5 produtos usando números inteiros.');
-      }
-      input.classList.remove('input-error');
-      items.push({produto:input.dataset.product,estoqueAtual:value});
+  function collectCount(){
+    const items=[]; for(const input of els.products.querySelectorAll('.stock-input')){
+      const raw=clean(input.value), val=Number(raw); input.classList.remove('input-error');
+      if(raw===''||!Number.isInteger(val)||val<0||val>99999){input.classList.add('input-error');input.focus();throw new Error('Preencha o estoque dos 5 produtos com números inteiros.');}
+      items.push({produto:input.dataset.product,estoqueAtual:val});
     }
-    return items;
+    if(items.length!==5)throw new Error('Os 5 produtos precisam estar cadastrados nesta loja.'); return items;
   }
-  function showResults(resultRows){
-    lastResult=resultRows;
-    const cards=[...els.productsList.querySelectorAll('.product-card')];
-    cards.forEach((card,i)=>{
-      const product=card.dataset.product;
-      const r=resultRows.find(x=>clean(x.produto)===product);
-      if(!r)return;
-      const box=card.querySelector('.suggestion-box');
-      const strong=box.querySelector('strong');
-      const label=box.querySelector('b');
-      const small=box.querySelector('small');
-      const sug=Math.max(0,Math.round(num(r.sugestao)));
-      strong.textContent=fmt(sug);
-      if(sug===0){label.textContent='NÃO PEDIR';small.textContent='estoque suficiente';box.classList.add('no-order')}else{label.textContent='PEDIR';small.textContent='unidades';box.classList.remove('no-order')}
-      box.classList.remove('hidden');
-      const last=card.querySelector('.last-stock strong');if(last)last.textContent=fmt(r.estoqueAtual);
+  function demoCalculate(loja,items){
+    visitId=`DEMO-${Date.now()}`;
+    const rows=items.map(it=>{
+      const base=stateRows.find(r=>r.cliente===loja&&r.produto===it.produto); const prev=base.estoqueAtual, prevOrder=base.ultimoPedido;
+      const venda=Math.max(0,Math.round(prev+prevOrder-it.estoqueAtual)); const sug=Math.max(0,Math.round(base.estoqueIdeal-it.estoqueAtual));
+      base.estoqueAtual=it.estoqueAtual;base.vendaEstimada=venda;base.sugestao=sug;base.atualizadoEm=new Date().toISOString();
+      return {...base,estoqueAnterior:prev,pedidoAnterior:prevOrder,vendaEstimada:venda,sugestao:sug,visitId};
     });
+    return {ok:true,visitId,rows,updatedAt:new Date().toISOString()};
   }
-  function demoUpdate(loja,items){
-    const updated=[];
-    items.forEach(item=>{
-      const r=rows.find(x=>x.cliente===loja&&x.produto===item.produto);
-      if(!r)return;
-      r.estoqueAtual=item.estoqueAtual;r.sugestao=Math.max(0,Math.round(r.estoqueIdeal-r.estoqueAtual));r.atualizadoEm=new Date().toISOString();
-      const global=(window.DEMO_SELLER_ROWS||[]).find(x=>x.cliente===loja&&x.produto===item.produto);if(global)Object.assign(global,r);
-      updated.push({...r});
-    });
-    return {ok:true,vendedor:session.vendedor,loja,updatedAt:new Date().toISOString(),rows:updated};
-  }
-  async function saveAndCalculate(e){
-    e.preventDefault();els.saveMessage.textContent='';
-    let items;try{items=collectStock()}catch(err){els.saveMessage.textContent=err.message;return}
-    const loja=els.client.value;const codigo=savedCode();
+  async function calculate(e){
+    e.preventDefault(); els.countMessage.textContent=''; let items; try{items=collectCount()}catch(err){els.countMessage.textContent=err.message;return}
     els.calculateBtn.disabled=true;els.calculateBtn.textContent='CALCULANDO...';
     try{
       let data;
-      if(!apiUrl())data=demoUpdate(loja,items);
+      if(!url()) data=demoCalculate(els.client.value,items);
       else{
-        const res=await fetch(updateEndpoint(),{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8','Accept':'application/json'},body:JSON.stringify({codigo,loja,itens:items}),cache:'no-store'});
-        data=await res.json().catch(()=>({ok:false,error:`Erro HTTP ${res.status}`}));
-        if(!res.ok||data.ok===false)throw new Error(data.error||'Não foi possível salvar o estoque.');
+        const res=await fetch(endpoint('calcular'),{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8','Accept':'application/json'},body:JSON.stringify({codigo:session.codigo,loja:els.client.value,itens:items}),cache:'no-store'});
+        data=await res.json(); if(!res.ok||data.ok===false)throw new Error(data.error||'Não foi possível calcular.');
       }
-      const normalized=normalizeRows(data);
-      if(!normalized.length)throw new Error('O n8n não devolveu as sugestões dos produtos.');
-      normalized.forEach(n=>{const current=rows.find(r=>r.cliente===n.cliente&&r.produto===n.produto);if(current)Object.assign(current,n)});
-      showResults(normalized);
-      const d=new Date(data.updatedAt||Date.now());els.updated.textContent=`Última contagem: ${new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(d)}`;
-      els.saveMessage.textContent=apiUrl()?'✓ Estoque salvo na planilha. Pedido calculado.':'✓ Teste concluído. Em modo demonstração nada é enviado para a planilha.';
-      els.saveMessage.classList.add('success');
-    }catch(err){els.saveMessage.textContent=err.message||'Erro ao salvar o estoque.';els.saveMessage.classList.remove('success')}
-    finally{els.calculateBtn.disabled=false;els.calculateBtn.textContent='SALVAR ESTOQUE E CALCULAR PEDIDO'}
+      visitId=data.visitId||`VIS-${Date.now()}`;calculated=normalizeState(data.rows).map(r=>({...r,visitId}));
+      renderReview();
+    }catch(e){els.countMessage.textContent=e.message||'Erro ao calcular o pedido.'}
+    finally{els.calculateBtn.disabled=false;els.calculateBtn.textContent='CALCULAR PEDIDO'}
   }
-  function openAdmin(){els.apiUrl.value=apiUrl();els.testMessage.textContent='';els.modal.classList.remove('hidden')}
-  function closeAdmin(){els.modal.classList.add('hidden')}
-  function showAdminIfRequested(){if(new URLSearchParams(location.search).get('config')==='1'){els.adminOpen.classList.remove('hidden');els.adminOpenLogin.classList.remove('hidden')}}
-  els.loginForm.addEventListener('submit',e=>{e.preventDefault();login(els.accessCode.value)});
-  els.accessCode.addEventListener('input',()=>{els.accessCode.value=els.accessCode.value.replace(/\D/g,'').slice(0,6)});
-  els.client.addEventListener('change',renderProducts);
-  els.stockForm.addEventListener('submit',saveAndCalculate);
-  els.productsList.addEventListener('input',e=>{if(e.target.classList.contains('stock-input')){e.target.classList.remove('input-error');els.saveMessage.textContent='';}});
-  els.logout.addEventListener('click',()=>{localStorage.removeItem('rv3_access_code');localStorage.removeItem('rv2_access_code');setLoggedOut()});
-  els.refresh.addEventListener('click',()=>{const c=savedCode();if(c)login(c,true)});
-  els.adminOpen.addEventListener('click',openAdmin);els.adminOpenLogin.addEventListener('click',openAdmin);els.adminClose.addEventListener('click',closeAdmin);els.modal.addEventListener('click',e=>{if(e.target===els.modal)closeAdmin()});
-  els.saveConfig.addEventListener('click',()=>{localStorage.setItem('rv3_api_url',els.apiUrl.value.trim());localStorage.removeItem('rv3_access_code');els.testMessage.textContent='Configuração salva.';setTimeout(()=>{closeAdmin();setLoggedOut('Digite seu código para entrar.')},500)});
-  els.clearConfig.addEventListener('click',()=>{localStorage.removeItem('rv3_api_url');localStorage.removeItem('rv2_api_url');localStorage.removeItem('rv3_access_code');localStorage.removeItem('rv2_access_code');closeAdmin();setLoggedOut('Modo demonstração ativado.')});
-  showAdminIfRequested();
-  const remembered=savedCode();if(remembered)login(remembered,true);else setLoggedOut();
+  function renderReview(){
+    els.countView.classList.add('hidden');els.successView.classList.add('hidden');els.reviewView.classList.remove('hidden');
+    els.reviewList.innerHTML=calculated.map(r=>`<article class="review-card" data-product="${esc(r.produto)}">
+      <div class="review-card-head"><div><h3>${esc(r.produto)}</h3><div class="review-meta">Estoque contado: <b>${fmt(r.estoqueAtual)}</b> · Venda estimada desde a última visita: <b>${fmt(r.vendaEstimada)}</b></div></div></div>
+      <div class="recommended"><span>PEDIDO RECOMENDADO</span><strong>${r.sugestao>0?fmt(r.sugestao):'NÃO PEDIR'}</strong></div>
+      <div class="order-edit"><label>PEDIDO QUE VOU FAZER</label><div class="order-row"><input class="order-input" type="number" min="0" step="1" inputmode="numeric" value="${Math.round(r.sugestao)}" data-suggestion="${Math.round(r.sugestao)}" data-product="${esc(r.produto)}"><span class="delta-pill ok">Igual à sugestão</span></div></div>
+    </article>`).join('');
+    els.reviewList.querySelectorAll('.order-input').forEach(i=>i.addEventListener('input',updateReviewTotals)); updateReviewTotals();window.scrollTo({top:0,behavior:'smooth'});
+  }
+  function updateReviewTotals(){
+    let suggested=0,confirmed=0;
+    els.reviewList.querySelectorAll('.order-input').forEach(input=>{
+      const s=n(input.dataset.suggestion),v=Math.max(0,Math.round(n(input.value))); suggested+=s;confirmed+=v;const d=v-s,pill=input.closest('.order-row').querySelector('.delta-pill');
+      pill.className='delta-pill '+(Math.abs(d)<=Math.max(3,s*.05)?'ok':d>Math.max(8,s*.15)?'high':'warn');
+      pill.textContent=d===0?'Igual à sugestão':`${d>0?'+':''}${fmt(d)} vs. sugestão`;
+    });
+    const diff=confirmed-suggested;els.suggestedTotal.textContent=fmt(suggested);els.confirmedTotal.textContent=fmt(confirmed);els.deviationTotal.textContent=`${diff>0?'+':''}${fmt(diff)}`;
+    els.deviationBox.className='deviation '+(Math.abs(diff)<=Math.max(5,suggested*.05)?'ok':diff>Math.max(15,suggested*.15)?'high':'warn');
+  }
+  function collectOrder(){
+    const items=[]; for(const input of els.reviewList.querySelectorAll('.order-input')){
+      const v=Number(clean(input.value)); if(!Number.isInteger(v)||v<0||v>99999){input.focus();throw new Error('Confira as quantidades do pedido.');}
+      const base=calculated.find(r=>r.produto===input.dataset.product);items.push({produto:base.produto,estoqueAtual:Math.round(base.estoqueAtual),sugestao:Math.round(base.sugestao),pedidoConfirmado:v,vendaEstimada:Math.round(base.vendaEstimada||0),trocas:Math.round(base.trocas||0)});
+    } return items;
+  }
+  function demoConfirm(loja,items){
+    const dt=new Date(),cycle=`${dt.toISOString().slice(0,10).replace(/-/g,'')}-${loja.replace(/\D/g,'')||'00'}-${Date.now().toString().slice(-5)}`;
+    items.forEach(it=>{
+      const st=DEMO.state.find(r=>r.cliente===loja&&r.produto===it.produto); if(st){st.estoqueAtual=it.estoqueAtual;st.sugestao=it.sugestao;st.ultimoPedido=it.pedidoConfirmado;st.vendaEstimada=it.vendaEstimada;st.atualizadoEm=dt.toISOString();st.ultimaVisita=dt.toISOString();}
+      const diff=it.pedidoConfirmado-it.sugestao,adh=it.sugestao===0&&it.pedidoConfirmado===0?1:Math.max(0,1-Math.abs(diff)/Math.max(it.sugestao,1));
+      DEMO.history.push({id:`${cycle}-${it.produto}`,dataHora:dt.toISOString(),data:dt.toISOString().slice(0,10),vendedor:session.vendedor,codigo:session.codigo,cliente:loja,produto:it.produto,estoqueContado:it.estoqueAtual,vendaEstimada:it.vendaEstimada,estoqueIdeal:(stateRows.find(r=>r.cliente===loja&&r.produto===it.produto)||{}).estoqueIdeal||0,sugestao:it.sugestao,pedidoConfirmado:it.pedidoConfirmado,diferencaPedido:diff,aderencia:adh,excessoPotencial:Math.max(0,diff),trocas:it.trocas||0,taxaTrocas:0,status:Math.abs(diff)<=Math.max(5,it.sugestao*.15)?'ALINHADO':diff>0?'ACIMA':'ABAIXO',origem:'SITE',cicloId:cycle});
+    });
+    return {ok:true,protocol:cycle,updatedAt:dt.toISOString()};
+  }
+  async function confirmOrder(){
+    els.confirmMessage.textContent=''; let items;try{items=collectOrder()}catch(e){els.confirmMessage.textContent=e.message;return}
+    els.confirmBtn.disabled=true;els.confirmBtn.textContent='CONFIRMANDO...';
+    try{
+      let data;
+      if(!url())data=demoConfirm(els.client.value,items);
+      else{
+        const res=await fetch(endpoint('confirmar'),{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8','Accept':'application/json'},body:JSON.stringify({codigo:session.codigo,loja:els.client.value,visitId,itens:items}),cache:'no-store'});
+        data=await res.json();if(!res.ok||data.ok===false)throw new Error(data.error||'Não foi possível confirmar o pedido.');
+      }
+      items.forEach(it=>{const r=stateRows.find(x=>x.cliente===els.client.value&&x.produto===it.produto);if(r){r.estoqueAtual=it.estoqueAtual;r.sugestao=it.sugestao;r.ultimoPedido=it.pedidoConfirmado;r.vendaEstimada=it.vendaEstimada;r.atualizadoEm=data.updatedAt||new Date().toISOString()}});
+      els.reviewView.classList.add('hidden');els.successView.classList.remove('hidden');els.protocol.textContent=data.protocol||visitId||'REGISTRADO';window.scrollTo({top:0,behavior:'smooth'});
+    }catch(e){els.confirmMessage.textContent=e.message||'Erro ao confirmar o pedido.'}
+    finally{els.confirmBtn.disabled=false;els.confirmBtn.textContent='CONFIRMAR PEDIDO'}
+  }
+  function logout(){localStorage.removeItem('reposicao_v4_code');session=null;stateRows=[];calculated=[];els.mainView.classList.add('hidden');els.loginView.classList.remove('hidden');els.refresh.classList.add('hidden');els.accessCode.value='';els.loginMessage.textContent='';els.accessCode.focus()}
+  function openConfig(){els.apiUrl.value=url();els.testMessage.textContent='';els.modal.classList.remove('hidden')}
+  function closeConfig(){els.modal.classList.add('hidden')}
+  els.loginForm.addEventListener('submit',e=>{e.preventDefault();login(els.accessCode.value)});els.logout.addEventListener('click',logout);els.client.addEventListener('change',startVisit);els.stockForm.addEventListener('submit',calculate);els.backToCount.addEventListener('click',()=>{els.reviewView.classList.add('hidden');els.countView.classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'})});els.confirmBtn.addEventListener('click',confirmOrder);els.newVisit.addEventListener('click',startVisit);els.refresh.addEventListener('click',()=>login(session?.codigo||code(),true));
+  [els.adminOpen,els.adminOpenLogin].forEach(b=>b.addEventListener('click',openConfig));els.adminClose.addEventListener('click',closeConfig);els.modal.addEventListener('click',e=>{if(e.target===els.modal)closeConfig()});els.saveConfig.addEventListener('click',()=>{const v=els.apiUrl.value.trim();if(v&&!/^https?:\/\//i.test(v)){els.testMessage.textContent='Informe uma URL completa começando com http ou https.';return}localStorage.setItem('reposicao_v4_seller_url',v);els.testMessage.textContent='Configuração salva.';setTimeout(()=>location.reload(),500)});els.clearConfig.addEventListener('click',()=>{localStorage.removeItem('reposicao_v4_seller_url');els.testMessage.textContent='Modo demonstração ativado.';setTimeout(()=>location.reload(),500)});
+  const saved=code();if(saved)login(saved,true);else setTimeout(()=>els.accessCode.focus(),100);
 })();

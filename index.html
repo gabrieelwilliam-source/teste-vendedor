@@ -1,90 +1,112 @@
+<!-- Reposicao Inteligente V4.1 - Site Vendedor -->
 <!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f4f7fb">
-  <title>Pedido de Reposição</title>
+  <meta name="theme-color" content="#f5f7fb">
+  <title>Reposição Inteligente</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="page" id="app">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">REPOSIÇÃO DE PRODUTOS</p>
-        <h1>Pedido de reposição</h1>
+  <main class="app-shell">
+    <header class="brandbar">
+      <div class="brandmark" aria-hidden="true">R</div>
+      <div class="brandcopy">
+        <span>REPOSIÇÃO INTELIGENTE</span>
+        <strong>Pedido da loja</strong>
       </div>
-      <button id="refreshBtn" class="refresh hidden" type="button" aria-label="Atualizar dados" title="Atualizar dados">↻</button>
+      <button id="refreshBtn" class="icon-btn hidden" type="button" aria-label="Atualizar dados">↻</button>
     </header>
 
-    <section id="loginView" class="login-card" aria-labelledby="loginTitle">
-      <div class="login-icon" aria-hidden="true">✓</div>
-      <h2 id="loginTitle">Digite seu código</h2>
-      <p>Use o código de 6 números fornecido pela empresa.</p>
-      <form id="loginForm">
+    <section id="loginView" class="login-panel">
+      <div class="login-symbol" aria-hidden="true">✓</div>
+      <p class="overline">ACESSO DO VENDEDOR</p>
+      <h1>Digite seu código</h1>
+      <p class="lead">Use os 6 números fornecidos pela empresa.</p>
+      <form id="loginForm" class="login-form">
         <label for="accessCode">Código de acesso</label>
-        <input id="accessCode" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="000000" aria-describedby="loginMessage">
-        <button class="enter-btn" type="submit">ENTRAR</button>
+        <input id="accessCode" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="000000">
+        <button type="submit" class="primary big">ENTRAR</button>
       </form>
-      <p id="loginMessage" class="login-message" role="status"></p>
-      <button id="adminOpenLogin" class="admin-link hidden" type="button">Configurar conexão</button>
+      <p id="loginMessage" class="message" role="status"></p>
+      <button id="adminOpenLogin" class="config-link hidden" type="button">Configurar conexão</button>
     </section>
 
     <section id="mainView" class="hidden">
-      <div class="welcome">
+      <div class="seller-strip">
         <div>
-          <span class="small-label">ACESSO LIBERADO PARA</span>
-          <strong id="sellerName">Vendedor</strong>
+          <span>VENDEDOR</span>
+          <strong id="sellerName">—</strong>
         </div>
-        <button id="logoutBtn" type="button" class="change-user">Trocar vendedor</button>
+        <button id="logoutBtn" type="button" class="secondary">Trocar vendedor</button>
       </div>
 
-      <div id="demoNotice" class="notice" role="status">
-        <span class="notice-dot"></span>
-        Modo demonstração
-      </div>
+      <div id="demoNotice" class="demo-notice"><span></span> Modo demonstração</div>
 
-      <section class="selection" aria-label="Selecionar loja">
-        <label class="field">
-          <span class="step">1</span>
-          <span class="label-text">Escolha a loja</span>
-          <select id="clientSelect" aria-label="Escolha a loja"></select>
-        </label>
+      <section id="stepStore" class="step-card">
+        <div class="step-heading"><span class="step-number">1</span><div><p>PRIMEIRO</p><h2>Escolha a loja</h2></div></div>
+        <label class="field-label" for="clientSelect">Loja que você está visitando</label>
+        <select id="clientSelect" class="large-select"></select>
       </section>
 
-      <section class="instruction-card">
-        <span class="step">2</span>
-        <div>
-          <h2>Conte o estoque da loja</h2>
-          <p>Digite quantas unidades de cada produto estão na loja <strong>agora</strong>.</p>
+      <section id="countView">
+        <section class="instruction-card">
+          <span class="step-number">2</span>
+          <div><p>AGORA</p><h2>Conte o estoque</h2><span>Digite quantas unidades existem na loja neste momento.</span></div>
+        </section>
+        <form id="stockForm">
+          <div id="productsList" class="products-list"></div>
+          <div id="countMessage" class="message" role="status"></div>
+          <div class="sticky-action">
+            <button id="calculateBtn" type="submit" class="primary huge">CALCULAR PEDIDO</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="reviewView" class="hidden">
+        <section class="instruction-card success-tone">
+          <span class="step-number">3</span>
+          <div><p>PEDIDO CALCULADO</p><h2>Confira e confirme</h2><span>O sistema já colocou a quantidade recomendada. Altere somente se for necessário.</span></div>
+        </section>
+        <div id="reviewList" class="review-list"></div>
+        <div class="review-summary">
+          <div><span>Total recomendado</span><strong id="suggestedTotal">0</strong></div>
+          <div><span>Total que será pedido</span><strong id="confirmedTotal">0</strong></div>
+          <div id="deviationBox" class="deviation ok"><span>Diferença</span><strong id="deviationTotal">0</strong></div>
+        </div>
+        <div id="confirmMessage" class="message" role="status"></div>
+        <div class="review-actions">
+          <button id="backToCount" type="button" class="secondary big">CORRIGIR ESTOQUE</button>
+          <button id="confirmOrderBtn" type="button" class="primary huge">CONFIRMAR PEDIDO</button>
         </div>
       </section>
 
-      <form id="stockForm">
-        <section id="productsList" class="products-list" aria-live="polite"></section>
-        <div id="emptyState" class="empty hidden">Não há dados disponíveis para esta loja.</div>
-
-        <div class="submit-area">
-          <button id="calculateBtn" class="calculate-btn" type="submit">SALVAR ESTOQUE E CALCULAR PEDIDO</button>
-          <p id="saveMessage" class="save-message" role="status"></p>
-        </div>
-      </form>
+      <section id="successView" class="success-panel hidden" aria-live="polite">
+        <div class="success-icon">✓</div>
+        <p class="overline">PEDIDO REGISTRADO</p>
+        <h2>Pronto!</h2>
+        <p>O estoque e o pedido foram enviados para o sistema.</p>
+        <div class="protocol"><span>Protocolo</span><strong id="protocolValue">—</strong></div>
+        <button id="newVisitBtn" type="button" class="primary big">FAZER OUTRA LOJA</button>
+      </section>
 
       <footer class="footer">
         <span id="updatedAt">Dados ainda não atualizados</span>
-        <button id="adminOpen" class="admin-link hidden" type="button">Configurar</button>
+        <button id="adminOpen" class="config-link hidden" type="button">Configurar</button>
       </footer>
     </section>
   </main>
 
-  <div id="adminModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+  <div id="adminModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
-      <h2 id="adminTitle">Conexão com n8n</h2>
-      <p>Informe a URL do webhook <strong>reposicao-vendedor</strong>. O site usa automaticamente o endpoint de atualização correspondente.</p>
-      <label>URL do webhook do vendedor
+      <p class="overline">CONFIGURAÇÃO TÉCNICA</p>
+      <h2>Conectar ao n8n</h2>
+      <p>Informe somente a URL de consulta. Os endereços de cálculo e confirmação são montados automaticamente.</p>
+      <label>Webhook do vendedor
         <input id="apiUrl" type="url" placeholder="https://seu-n8n/webhook/reposicao-vendedor">
       </label>
-      <div id="testMessage" class="test-message"></div>
+      <div id="testMessage" class="message"></div>
       <div class="modal-actions">
         <button id="clearConfig" class="secondary" type="button">Usar demonstração</button>
         <button id="adminClose" class="secondary" type="button">Cancelar</button>
