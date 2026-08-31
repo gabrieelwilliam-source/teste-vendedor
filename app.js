@@ -1,169 +1,111 @@
 (()=>{
-  const $=s=>document.querySelector(s);
+  const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
   const els={
-    loginView:$('#loginView'),mainView:$('#mainView'),loginForm:$('#loginForm'),accessCode:$('#accessCode'),loginMessage:$('#loginMessage'),
-    sellerName:$('#sellerName'),logout:$('#logoutBtn'),client:$('#clientSelect'),countView:$('#countView'),products:$('#productsList'),stockForm:$('#stockForm'),
-    countMessage:$('#countMessage'),calculateBtn:$('#calculateBtn'),reviewView:$('#reviewView'),reviewList:$('#reviewList'),suggestedTotal:$('#suggestedTotal'),
-    confirmedTotal:$('#confirmedTotal'),deviationTotal:$('#deviationTotal'),deviationBox:$('#deviationBox'),confirmMessage:$('#confirmMessage'),
-    backToCount:$('#backToCount'),confirmBtn:$('#confirmOrderBtn'),successView:$('#successView'),protocol:$('#protocolValue'),newVisit:$('#newVisitBtn'),
-    updated:$('#updatedAt'),refresh:$('#refreshBtn'),notice:$('#demoNotice'),adminOpen:$('#adminOpen'),adminOpenLogin:$('#adminOpenLogin'),modal:$('#adminModal'),
-    apiUrl:$('#apiUrl'),testMessage:$('#testMessage'),adminClose:$('#adminClose'),saveConfig:$('#saveConfig'),clearConfig:$('#clearConfig')
+    loginView:$('#loginView'),mainView:$('#mainView'),loginForm:$('#loginForm'),accessCode:$('#accessCode'),loginMessage:$('#loginMessage'),sellerName:$('#sellerName'),logout:$('#logoutBtn'),client:$('#clientSelect'),
+    checkinView:$('#checkinView'),gpsStatus:$('#gpsStatus'),startVisitBtn:$('#startVisitBtn'),gpsHelpBtn:$('#gpsHelpBtn'),checkinMessage:$('#checkinMessage'),countView:$('#countView'),products:$('#productsList'),stockForm:$('#stockForm'),countMessage:$('#countMessage'),calculateBtn:$('#calculateBtn'),
+    reviewView:$('#reviewView'),reviewList:$('#reviewList'),acceptAll:$('#acceptAllBtn'),suggestedTotal:$('#suggestedTotal'),confirmedTotal:$('#confirmedTotal'),deviationTotal:$('#deviationTotal'),deviationBox:$('#deviationBox'),checkValidity:$('#checkValidity'),checkReturns:$('#checkReturns'),checkOrder:$('#checkOrder'),confirmMessage:$('#confirmMessage'),backToCount:$('#backToCount'),confirmBtn:$('#confirmOrderBtn'),successView:$('#successView'),protocol:$('#protocolValue'),newVisit:$('#newVisitBtn'),
+    updated:$('#updatedAt'),refresh:$('#refreshBtn'),notice:$('#demoNotice'),offline:$('#offlineNotice'),network:$('#networkBadge'),qrHint:$('#qrHint'),install:$('#installBtn'),
+    adminOpen:$('#adminOpen'),adminOpenLogin:$('#adminOpenLogin'),modal:$('#adminModal'),apiUrl:$('#apiUrl'),testMessage:$('#testMessage'),adminClose:$('#adminClose'),saveConfig:$('#saveConfig'),clearConfig:$('#clearConfig'),
+    gpsHelpModal:$('#gpsHelpModal'),gpsHelpClose:$('#gpsHelpClose'),gpsContinue:$('#gpsContinue'),gpsNoReason:$('#gpsNoReason')
   };
-  const PRODUCTS=['Pão sovado','Pão de Sanduiche','Pão de HOT DOG','Pão de Hamburguer','Pão Caseiro'];
-  const DEMO=window.REPOSICAO_DEMO_DATA||{sellers:[],state:[],history:[]};
-  let session=null, stateRows=[], calculated=[], visitId='';
+  const PRODUCT_META={
+    'Pão sovado':{official:'MEGA BAKERY SOVADO',code:'000001',barcode:'7898902932016',weight:'600 G',price:7.40,box:8,image:'assets/products/pao-sovado.webp'},
+    'Pão de Sanduiche':{official:'MEGA BAKERY SANDUICHE',code:'000002',barcode:'7898966257650',weight:'400 G',price:4.99,box:10,image:'assets/products/pao-sanduiche.webp'},
+    'Pão de HOT DOG':{official:'MEGA BAKERY HOT DOG',code:'000009',barcode:'7898902932160',weight:'300 G',price:4.10,box:16,image:'assets/products/pao-hot-dog.webp'},
+    'Pão de Hamburguer':{official:'MEGA BAKERY HAMBURGUER',code:'000012',barcode:'7898902932177',weight:'300 G',price:4.10,box:12,image:'assets/products/pao-hamburguer.webp'},
+    'Pão Caseiro':{official:'MEGA BAKERY CASEIRINHO',code:'000008',barcode:'7898902932153',weight:'300 G',price:3.90,box:15,image:'assets/products/pao-caseiro.webp'}
+  };
+  const PRODUCTS=Object.keys(PRODUCT_META);
+  const productMeta=name=>PRODUCT_META[name]||{official:name,code:'',barcode:'',weight:'',price:0,box:0,image:''};
+  const money2=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2,maximumFractionDigits:2}).format(n(v));
+  const REASONS=['Promoção na loja','Evento / sazonalidade','Pedido especial do cliente','Aumento de venda previsto','Estoque de segurança extra','Orientação do supervisor','Outro'];
+  const DEMO=window.REPOSICAO_DEMO_DATA||{sellers:[],state:[],storesConfig:[],config:{}};
+  const DEFAULT_API_URL='https://app.vps7376.panel.icontainer.cloud/webhook/reposicao-vendedor';
   const clean=v=>String(v??'').trim();
-  const n=v=>Number(String(v??0).replace(',','.'))||0;
+  const n=v=>{if(typeof v==='number')return Number.isFinite(v)?v:0;let s=clean(v);if(!s)return 0;if(s.includes(',')&&s.includes('.'))s=s.lastIndexOf(',')>s.lastIndexOf('.')?s.replace(/\./g,'').replace(',','.'):s.replace(/,/g,'');else if(s.includes(','))s=s.replace(',','.');const x=Number(s.replace(/[^0-9.\-]/g,''));return Number.isFinite(x)?x:0};
   const fmt=v=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(Math.max(0,Math.round(n(v))));
   const esc=v=>clean(v).replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const DEFAULT_API_URL='https://app.vps7376.panel.icontainer.cloud/webhook/reposicao-vendedor';
-  const forceDemo=()=>new URLSearchParams(location.search).get('demo')==='1'||localStorage.getItem('reposicao_v4_force_demo')==='1';
-  const url=()=>forceDemo()?'':(localStorage.getItem('reposicao_v4_seller_url')||DEFAULT_API_URL);
-  const code=()=>localStorage.getItem('reposicao_v4_code')||'';
+  const fmtDist=m=>!Number.isFinite(m)?'—':m<1000?`${Math.round(m)} m`:`${(m/1000).toFixed(1).replace('.',',')} km`;
+  const storageKey=(suffix,store='')=>`reposicao_v5_${suffix}_${session?.codigo||'anon'}_${store||els.client?.value||''}`;
+  const forceDemo=()=>new URLSearchParams(location.search).get('demo')==='1'||localStorage.getItem('reposicao_v5_force_demo')==='1';
+  const apiUrl=()=>forceDemo()?'':(localStorage.getItem('reposicao_v5_seller_url')||DEFAULT_API_URL);
+  const savedCode=()=>localStorage.getItem('reposicao_v5_code')||'';
   const isConfig=()=>new URLSearchParams(location.search).get('config')==='1';
+  const qrStore=()=>new URLSearchParams(location.search).get('loja')||'';
   if(isConfig()){els.adminOpen.classList.remove('hidden');els.adminOpenLogin.classList.remove('hidden')}
 
+  let session=null,stateRows=[],storeConfigs=[],systemConfig={},calculated=[],visit=null,watchId=null,lastGps=null,lastPingAt=0,deferredPrompt=null;
+
   function endpoint(kind){
-    const base=url(); if(!base)return '';
-    try{
-      const u=new URL(base), p=u.pathname.replace(/\/+$/,'');
-      if(kind==='calcular')u.pathname=p.replace(/\/reposicao-vendedor$/,'/reposicao-vendedor-calcular');
-      if(kind==='confirmar')u.pathname=p.replace(/\/reposicao-vendedor$/,'/reposicao-vendedor-confirmar');
-      return u.toString();
-    }catch{
-      return base.replace(/\/+$/,'').replace(/\/reposicao-vendedor$/,kind==='calcular'?'/reposicao-vendedor-calcular':'/reposicao-vendedor-confirmar');
-    }
+    const base=apiUrl(); if(!base)return '';
+    const map={start:'reposicao-visita-iniciar',ping:'reposicao-visita-ping',calcular:'reposicao-vendedor-calcular',confirmar:'reposicao-vendedor-confirmar'};
+    try{const u=new URL(base);u.pathname=u.pathname.replace(/\/+$/,'').replace(/reposicao-vendedor$/,map[kind]||'reposicao-vendedor');return u.toString()}
+    catch{return base.replace(/\/+$/,'').replace(/reposicao-vendedor$/,map[kind]||'reposicao-vendedor')}
   }
-  async function jsonResponse(res){const text=await res.text();if(!text.trim())throw new Error(`Servidor sem resposta (HTTP ${res.status}).`);let obj;try{obj=JSON.parse(text)}catch{throw new Error(`Resposta inválida do servidor (HTTP ${res.status}).`)}return obj}
+  async function jsonResponse(res){const text=await res.text();if(!text.trim())throw new Error(`Servidor sem resposta (HTTP ${res.status}).`);try{return JSON.parse(text)}catch{throw new Error(`Resposta inválida do servidor (HTTP ${res.status}).`)}}
   function normalizeState(rows){return (Array.isArray(rows)?rows:[]).map(r=>({
-    chave:clean(r.chave??r.Chave), vendedor:clean(r.vendedor??r.Vendedor), cliente:clean(r.cliente??r.Cliente), produto:clean(r.produto??r.Produto),
-    estoqueAtual:n(r.estoqueAtual??r['Estoque Atual']), estoqueIdeal:n(r.estoqueIdeal??r['Estoque Ideal']), sugestao:n(r.sugestao??r['Sugestão Reposição']),
-    ultimoPedido:n(r.ultimoPedido??r['Último Pedido Confirmado']), vendaEstimada:n(r.vendaEstimada??r['Venda Estimada Último Ciclo']), trocas:n(r.trocas??r['Trocas Último Ciclo']),
-    atualizadoEm:clean(r.atualizadoEm??r['Última Atualização']??r['Atualizado em'])
+    chave:clean(r.chave??r.Chave),vendedor:clean(r.vendedor??r.Vendedor),cliente:clean(r.cliente??r.Cliente),produto:clean(r.produto??r.Produto),
+    estoqueAtual:n(r.estoqueAtual??r['Estoque Atual']),mediaVendasSemanal:n(r.mediaVendasSemanal??r['Média Vendas Semanal']),estoqueIdeal:n(r.estoqueIdeal??r['Estoque Ideal']),sugestao:n(r.sugestao??r['Sugestão Reposição']),
+    ultimoPedido:n(r.ultimoPedido??r['Último Pedido Confirmado']),vendaEstimada:n(r.vendaEstimada??r['Venda Estimada Último Ciclo']),trocas:n(r.trocas??r['Trocas Último Ciclo']),atualizadoEm:clean(r.atualizadoEm??r['Última Atualização'])
   })).filter(r=>r.cliente&&r.produto)}
-  function demoLogin(c){
-    const s=DEMO.sellers.find(x=>String(x.codigo)===c&&x.ativo!==false); if(!s)return null;
-    return {ok:true,vendedor:s.vendedor,lojas:s.lojas,rows:DEMO.state.filter(r=>s.lojas.includes(r.cliente)),updatedAt:new Date().toISOString(),demo:true};
-  }
+  function normalizeStores(rows){return (Array.isArray(rows)?rows:[]).map(r=>({loja:clean(r.loja??r.Loja),vendedor:clean(r.vendedor??r.Vendedor),endereco:clean(r.endereco??r.Endereço),lat:n(r.lat??r.latitude??r.Latitude),lon:n(r.lon??r.longitude??r.Longitude),raio:Math.max(50,n(r.raio??r['Raio GPS (m)']??300)),ativa:clean((r.ativa??r.Ativa)||'SIM').toUpperCase()!=='NÃO'})).filter(r=>r.loja)}
+  function storeConfig(name){return storeConfigs.find(x=>x.loja===name)||{loja:name,lat:0,lon:0,raio:n(systemConfig.raioGpsPadrao||300)||300,endereco:''}}
+  function haversine(lat1,lon1,lat2,lon2){const R=6371000,toRad=x=>x*Math.PI/180,dLat=toRad(lat2-lat1),dLon=toRad(lon2-lon1),a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))}
+  function gpsSummary(pos,store){if(!pos)return {status:'SEM GPS',distance:null};if(!store?.lat||!store?.lon)return {status:'GPS SEM CADASTRO',distance:null};const d=haversine(pos.lat,pos.lon,store.lat,store.lon),acc=pos.accuracy||9999;if(acc>150)return {status:'GPS IMPRECISO',distance:d};return {status:d<=store.raio?'DENTRO DA LOJA':'FORA DA LOJA',distance:d}}
+  function positionObject(p){return {lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy,timestamp:new Date(p.timestamp||Date.now()).toISOString()}}
+  function getPosition(){return new Promise((resolve,reject)=>{if(!navigator.geolocation)return reject(new Error('Este aparelho não disponibiliza localização.'));navigator.geolocation.getCurrentPosition(p=>resolve(positionObject(p)),err=>reject(new Error(err.code===1?'Permissão de localização negada.':'Não foi possível obter a localização.')),{enableHighAccuracy:true,timeout:12000,maximumAge:15000})})}
+  function setGpsUi(pos,status,distance){lastGps=pos||lastGps;const box=els.gpsStatus;box.className='gps-status '+(status==='DENTRO DA LOJA'?'good':status==='FORA DA LOJA'?'bad':status==='GPS IMPRECISO'||status==='GPS SEM CADASTRO'?'warn':'neutral');box.innerHTML=`<div class="gps-dot"></div><div><strong>${esc(status||'GPS não verificado')}</strong><span>${distance!=null?`Distância aproximada da loja: ${fmtDist(distance)}.`:status==='GPS SEM CADASTRO'?'A loja ainda não possui coordenadas cadastradas.':'A visita ficará marcada para conferência.'}</span></div>`}
+  function updateNetwork(){const on=navigator.onLine;els.offline.classList.toggle('hidden',on);els.network.textContent=on?'Online':'Sem internet';els.network.className='badge '+(on?'ok':'warn')}
+  window.addEventListener('online',()=>{updateNetwork();if(session)login(session.codigo,true)});window.addEventListener('offline',updateNetwork);updateNetwork();
+
+  function cacheSession(data,c){try{localStorage.setItem('reposicao_v5_cache',JSON.stringify({savedAt:Date.now(),codigo:c,data}))}catch{}}
+  function cachedLogin(c){try{const x=JSON.parse(localStorage.getItem('reposicao_v5_cache')||'null');if(x&&x.codigo===c&&Date.now()-x.savedAt<7*864e5)return {...x.data,cached:true}}catch{}return null}
+  function demoLogin(c){const s=(DEMO.sellers||[]).find(x=>String(x.codigo)===c&&x.ativo!==false);if(!s)return null;return {ok:true,vendedor:s.vendedor,lojas:s.lojas,rows:(DEMO.state||[]).filter(r=>s.lojas.includes(r.cliente)),storesConfig:(DEMO.storesConfig||[]).filter(r=>s.lojas.includes(r.loja)),config:DEMO.config||{},updatedAt:new Date().toISOString(),demo:true}}
   async function login(c,quiet=false){
-    c=clean(c).replace(/\D/g,'');
-    if(c.length!==6){if(!quiet)els.loginMessage.textContent='Digite os 6 números do seu código.';return false}
-    if(!quiet)els.loginMessage.textContent='Entrando...';
-    try{
-      let data;
-      if(!url()) data=demoLogin(c);
-      else{
-        const sep=url().includes('?')?'&':'?';
-        const res=await fetch(`${url()}${sep}codigo=${encodeURIComponent(c)}`,{headers:{Accept:'application/json'},cache:'no-store'});
-        data=await jsonResponse(res); if(!res.ok||data.ok===false)throw new Error(data.error||'Acesso não autorizado.');
-      }
-      if(!data)throw new Error('Código não encontrado.');
-      session={codigo:c,vendedor:data.vendedor||'Vendedor',lojas:data.lojas||[]}; stateRows=normalizeState(data.rows||[]);
-      if(!stateRows.length)throw new Error('Nenhum produto cadastrado para suas lojas.');
-      localStorage.setItem('reposicao_v4_code',c); renderLoggedIn(data.demo||!url(),data.updatedAt); return true;
+    c=clean(c).replace(/\D/g,'');if(c.length!==6){if(!quiet)els.loginMessage.textContent='Digite os 6 números do seu código.';return false}if(!quiet)els.loginMessage.textContent='Entrando...';
+    try{let data;if(!apiUrl())data=demoLogin(c);else if(!navigator.onLine)data=cachedLogin(c);else{const sep=apiUrl().includes('?')?'&':'?';const res=await fetch(`${apiUrl()}${sep}codigo=${encodeURIComponent(c)}&_ts=${Date.now()}`,{headers:{Accept:'application/json'},cache:'no-store'});data=await jsonResponse(res);if(!res.ok||data.ok===false)throw new Error(data.error||'Acesso não autorizado.');cacheSession(data,c)}if(!data)throw new Error(navigator.onLine?'Código não encontrado.':'Sem internet e sem dados recentes salvos neste aparelho.');
+      session={codigo:c,vendedor:data.vendedor||'Vendedor',lojas:data.lojas||[]};stateRows=normalizeState(data.rows||[]);storeConfigs=normalizeStores(data.storesConfig||[]);systemConfig=data.config||{};if(!stateRows.length)throw new Error('Nenhum produto cadastrado para suas lojas.');localStorage.setItem('reposicao_v5_code',c);renderLoggedIn(data.demo||!apiUrl(),data.updatedAt,data.cached);return true
     }catch(e){if(!quiet)els.loginMessage.textContent=e.message||'Não foi possível entrar.';return false}
   }
-  function renderLoggedIn(demo,updatedAt){
-    els.loginView.classList.add('hidden');els.mainView.classList.remove('hidden');els.refresh.classList.remove('hidden');els.sellerName.textContent=session.vendedor;
-    els.notice.classList.toggle('hidden',!demo); els.client.innerHTML=session.lojas.filter(l=>stateRows.some(r=>r.cliente===l)).map(l=>`<option>${esc(l)}</option>`).join('');
-    els.updated.textContent=`Dados carregados: ${new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(updatedAt||Date.now()))}`;
-    startVisit();
-  }
-  function startVisit(){calculated=[];visitId='';els.reviewView.classList.add('hidden');els.successView.classList.add('hidden');els.countView.classList.remove('hidden');renderCount();window.scrollTo({top:0,behavior:'smooth'})}
+  function renderLoggedIn(demo,updatedAt,cached){els.loginView.classList.add('hidden');els.mainView.classList.remove('hidden');els.refresh.classList.remove('hidden');els.sellerName.textContent=session.vendedor;els.notice.classList.toggle('hidden',!demo);const available=session.lojas.filter(l=>stateRows.some(r=>r.cliente===l));els.client.innerHTML=available.map(l=>`<option>${esc(l)}</option>`).join('');const q=qrStore();if(q&&available.includes(q)){els.client.value=q;els.qrHint.textContent=`QR Code reconhecido: ${q} já foi selecionada.`;els.qrHint.classList.remove('hidden')}else els.qrHint.classList.add('hidden');els.updated.textContent=`Dados ${cached?'salvos no aparelho':'carregados'}: ${new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(updatedAt||Date.now()))}`;resetVisit()}
+  function resetVisit(){stopTracking();visit=null;calculated=[];lastGps=null;els.checkinView.classList.remove('hidden');els.countView.classList.add('hidden');els.reviewView.classList.add('hidden');els.successView.classList.add('hidden');els.checkinMessage.textContent='';setGpsUi(null,'GPS ainda não verificado',null);restoreDraft();window.scrollTo({top:0,behavior:'smooth'})}
   function storeRows(){return stateRows.filter(r=>r.cliente===els.client.value).sort((a,b)=>PRODUCTS.indexOf(a.produto)-PRODUCTS.indexOf(b.produto))}
-  function renderCount(){
-    els.countMessage.textContent=''; const rows=storeRows();
-    els.products.innerHTML=rows.map((r,i)=>`<article class="product-card">
-      <div class="product-top"><h3>${esc(r.produto)}</h3><div class="last-data">Último estoque: <strong>${fmt(r.estoqueAtual)}</strong><br>Último pedido: <strong>${fmt(r.ultimoPedido)}</strong></div></div>
-      <label class="stock-box"><span>ESTOQUE NA LOJA AGORA</span><div class="stock-line"><input class="stock-input" data-product="${esc(r.produto)}" type="number" min="0" step="1" inputmode="numeric" placeholder="0" required><small>unidades</small></div></label>
-    </article>`).join('');
+  function draft(){try{return JSON.parse(localStorage.getItem(storageKey('draft'))||'null')}catch{return null}}
+  function saveDraft(){if(!session||!els.products.children.length)return;const items=[...els.products.querySelectorAll('.product-card')].map(card=>({produto:card.dataset.product,estoque:card.querySelector('.stock-input')?.value||'',trocas:card.querySelector('.returns-input')?.value||'0',vencimento:card.querySelector('.expiry-check')?.checked||false,qtdVencimento:card.querySelector('.expiry-input')?.value||'0'}));localStorage.setItem(storageKey('draft'),JSON.stringify({at:Date.now(),items}))}
+  function restoreDraft(){const d=draft();if(d&&Date.now()-d.at<12*3600e3&&visit)renderCount(d.items)}
+  function clearDraft(){localStorage.removeItem(storageKey('draft'))}
+
+  async function startVisit(skipGps=false){
+    els.checkinMessage.textContent='';els.startVisitBtn.disabled=true;els.startVisitBtn.textContent=skipGps?'ABRINDO VISITA...':'VALIDANDO LOCALIZAÇÃO...';
+    try{let pos=null,reason='';if(!skipGps){pos=await getPosition();lastGps=pos}else{reason=clean(els.gpsNoReason.value)||'GPS não disponível'}const store=storeConfig(els.client.value),g=gpsSummary(pos,store);setGpsUi(pos,g.status,g.distance);
+      let data;if(!apiUrl()){data={ok:true,visitId:`DEMO-${Date.now()}`,visitToken:`DEMO-${Math.random().toString(36).slice(2)}`,gpsStatus:g.status,distance:g.distance}}else{if(!navigator.onLine)throw new Error('Conecte-se à internet para iniciar a visita.');const res=await fetch(endpoint('start'),{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8','Accept':'application/json'},body:JSON.stringify({codigo:session.codigo,loja:els.client.value,gps:pos,gpsStatus:g.status,distance:g.distance,gpsReason:reason}),cache:'no-store'});data=await jsonResponse(res);if(!res.ok||data.ok===false)throw new Error(data.error||'Não foi possível iniciar a visita.')}
+      visit={id:data.visitId,token:data.visitToken||'',loja:els.client.value,gpsStatus:data.gpsStatus||g.status,distance:data.distance??g.distance,startedAt:new Date().toISOString()};els.gpsHelpModal.classList.add('hidden');els.checkinView.classList.add('hidden');els.countView.classList.remove('hidden');const d=draft();renderCount(d&&Date.now()-d.at<12*3600e3?d.items:undefined);startTracking();window.scrollTo({top:0,behavior:'smooth'})
+    }catch(e){els.checkinMessage.textContent=e.message||'Não foi possível iniciar a visita.'}
+    finally{els.startVisitBtn.disabled=false;els.startVisitBtn.textContent='INICIAR VISITA NESTA LOJA'}
   }
-  function collectCount(){
-    const items=[]; for(const input of els.products.querySelectorAll('.stock-input')){
-      const raw=clean(input.value), val=Number(raw); input.classList.remove('input-error');
-      if(raw===''||!Number.isInteger(val)||val<0||val>99999){input.classList.add('input-error');input.focus();throw new Error('Preencha o estoque dos 5 produtos com números inteiros.');}
-      items.push({produto:input.dataset.product,estoqueAtual:val});
-    }
-    if(items.length!==5)throw new Error('Os 5 produtos precisam estar cadastrados nesta loja.'); return items;
-  }
-  function demoCalculate(loja,items){
-    visitId=`DEMO-${Date.now()}`;
-    const rows=items.map(it=>{
-      const base=stateRows.find(r=>r.cliente===loja&&r.produto===it.produto); const prev=base.estoqueAtual, prevOrder=base.ultimoPedido;
-      const venda=Math.max(0,Math.round(prev+prevOrder-it.estoqueAtual)); const sug=Math.max(0,Math.round(base.estoqueIdeal-it.estoqueAtual));
-      base.estoqueAtual=it.estoqueAtual;base.vendaEstimada=venda;base.sugestao=sug;base.atualizadoEm=new Date().toISOString();
-      return {...base,estoqueAnterior:prev,pedidoAnterior:prevOrder,vendaEstimada:venda,sugestao:sug,visitId};
-    });
-    return {ok:true,visitId,rows,updatedAt:new Date().toISOString()};
-  }
-  async function calculate(e){
-    e.preventDefault(); els.countMessage.textContent=''; let items; try{items=collectCount()}catch(err){els.countMessage.textContent=err.message;return}
-    els.calculateBtn.disabled=true;els.calculateBtn.textContent='CALCULANDO...';
-    try{
-      let data;
-      if(!url()) data=demoCalculate(els.client.value,items);
-      else{
-        const res=await fetch(endpoint('calcular'),{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8','Accept':'application/json'},body:JSON.stringify({codigo:session.codigo,loja:els.client.value,itens:items}),cache:'no-store'});
-        data=await jsonResponse(res); if(!res.ok||data.ok===false)throw new Error(data.error||'Não foi possível calcular.');
-      }
-      visitId=data.visitId||`VIS-${Date.now()}`;calculated=normalizeState(data.rows).map(r=>({...r,visitId}));
-      renderReview();
-    }catch(e){els.countMessage.textContent=e.message||'Erro ao calcular o pedido.'}
-    finally{els.calculateBtn.disabled=false;els.calculateBtn.textContent='CALCULAR PEDIDO'}
-  }
-  function renderReview(){
-    els.countView.classList.add('hidden');els.successView.classList.add('hidden');els.reviewView.classList.remove('hidden');
-    els.reviewList.innerHTML=calculated.map(r=>`<article class="review-card" data-product="${esc(r.produto)}">
-      <div class="review-card-head"><div><h3>${esc(r.produto)}</h3><div class="review-meta">Estoque contado: <b>${fmt(r.estoqueAtual)}</b> · Venda estimada desde a última visita: <b>${fmt(r.vendaEstimada)}</b></div></div></div>
-      <div class="recommended"><span>PEDIDO RECOMENDADO</span><strong>${r.sugestao>0?fmt(r.sugestao):'NÃO PEDIR'}</strong></div>
-      <div class="order-edit"><label>PEDIDO QUE VOU FAZER</label><div class="order-row"><input class="order-input" type="number" min="0" step="1" inputmode="numeric" value="${Math.round(r.sugestao)}" data-suggestion="${Math.round(r.sugestao)}" data-product="${esc(r.produto)}"><span class="delta-pill ok">Igual à sugestão</span></div></div>
-    </article>`).join('');
-    els.reviewList.querySelectorAll('.order-input').forEach(i=>i.addEventListener('input',updateReviewTotals)); updateReviewTotals();window.scrollTo({top:0,behavior:'smooth'});
-  }
-  function updateReviewTotals(){
-    let suggested=0,confirmed=0;
-    els.reviewList.querySelectorAll('.order-input').forEach(input=>{
-      const s=n(input.dataset.suggestion),v=Math.max(0,Math.round(n(input.value))); suggested+=s;confirmed+=v;const d=v-s,pill=input.closest('.order-row').querySelector('.delta-pill');
-      pill.className='delta-pill '+(Math.abs(d)<=Math.max(3,s*.05)?'ok':d>Math.max(8,s*.15)?'high':'warn');
-      pill.textContent=d===0?'Igual à sugestão':`${d>0?'+':''}${fmt(d)} vs. sugestão`;
-    });
-    const diff=confirmed-suggested;els.suggestedTotal.textContent=fmt(suggested);els.confirmedTotal.textContent=fmt(confirmed);els.deviationTotal.textContent=`${diff>0?'+':''}${fmt(diff)}`;
-    els.deviationBox.className='deviation '+(Math.abs(diff)<=Math.max(5,suggested*.05)?'ok':diff>Math.max(15,suggested*.15)?'high':'warn');
-  }
-  function collectOrder(){
-    const items=[]; for(const input of els.reviewList.querySelectorAll('.order-input')){
-      const v=Number(clean(input.value)); if(!Number.isInteger(v)||v<0||v>99999){input.focus();throw new Error('Confira as quantidades do pedido.');}
-      const base=calculated.find(r=>r.produto===input.dataset.product);items.push({produto:base.produto,estoqueAtual:Math.round(base.estoqueAtual),sugestao:Math.round(base.sugestao),pedidoConfirmado:v,vendaEstimada:Math.round(base.vendaEstimada||0),trocas:Math.round(base.trocas||0)});
-    } return items;
-  }
-  function demoConfirm(loja,items){
-    const dt=new Date(),cycle=`${dt.toISOString().slice(0,10).replace(/-/g,'')}-${loja.replace(/\D/g,'')||'00'}-${Date.now().toString().slice(-5)}`;
-    items.forEach(it=>{
-      const st=DEMO.state.find(r=>r.cliente===loja&&r.produto===it.produto); if(st){st.estoqueAtual=it.estoqueAtual;st.sugestao=it.sugestao;st.ultimoPedido=it.pedidoConfirmado;st.vendaEstimada=it.vendaEstimada;st.atualizadoEm=dt.toISOString();st.ultimaVisita=dt.toISOString();}
-      const diff=it.pedidoConfirmado-it.sugestao,adh=it.sugestao===0&&it.pedidoConfirmado===0?1:Math.max(0,1-Math.abs(diff)/Math.max(it.sugestao,1));
-      DEMO.history.push({id:`${cycle}-${it.produto}`,dataHora:dt.toISOString(),data:dt.toISOString().slice(0,10),vendedor:session.vendedor,codigo:session.codigo,cliente:loja,produto:it.produto,estoqueContado:it.estoqueAtual,vendaEstimada:it.vendaEstimada,estoqueIdeal:(stateRows.find(r=>r.cliente===loja&&r.produto===it.produto)||{}).estoqueIdeal||0,sugestao:it.sugestao,pedidoConfirmado:it.pedidoConfirmado,diferencaPedido:diff,aderencia:adh,excessoPotencial:Math.max(0,diff),trocas:it.trocas||0,taxaTrocas:0,status:Math.abs(diff)<=Math.max(5,it.sugestao*.15)?'ALINHADO':diff>0?'ACIMA':'ABAIXO',origem:'SITE',cicloId:cycle});
-    });
-    return {ok:true,protocol:cycle,updatedAt:dt.toISOString()};
-  }
-  async function confirmOrder(){
-    els.confirmMessage.textContent=''; let items;try{items=collectOrder()}catch(e){els.confirmMessage.textContent=e.message;return}
-    els.confirmBtn.disabled=true;els.confirmBtn.textContent='CONFIRMANDO...';
-    try{
-      let data;
-      if(!url())data=demoConfirm(els.client.value,items);
-      else{
-        const res=await fetch(endpoint('confirmar'),{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8','Accept':'application/json'},body:JSON.stringify({codigo:session.codigo,loja:els.client.value,visitId,itens:items}),cache:'no-store'});
-        data=await jsonResponse(res);if(!res.ok||data.ok===false)throw new Error(data.error||'Não foi possível confirmar o pedido.');
-      }
-      items.forEach(it=>{const r=stateRows.find(x=>x.cliente===els.client.value&&x.produto===it.produto);if(r){r.estoqueAtual=it.estoqueAtual;r.sugestao=it.sugestao;r.ultimoPedido=it.pedidoConfirmado;r.vendaEstimada=it.vendaEstimada;r.atualizadoEm=data.updatedAt||new Date().toISOString()}});
-      els.reviewView.classList.add('hidden');els.successView.classList.remove('hidden');els.protocol.textContent=data.protocol||visitId||'REGISTRADO';window.scrollTo({top:0,behavior:'smooth'});
-    }catch(e){els.confirmMessage.textContent=e.message||'Erro ao confirmar o pedido.'}
-    finally{els.confirmBtn.disabled=false;els.confirmBtn.textContent='CONFIRMAR PEDIDO'}
-  }
-  function logout(){localStorage.removeItem('reposicao_v4_code');session=null;stateRows=[];calculated=[];els.mainView.classList.add('hidden');els.loginView.classList.remove('hidden');els.refresh.classList.add('hidden');els.accessCode.value='';els.loginMessage.textContent='';els.accessCode.focus()}
-  function openConfig(){els.apiUrl.value=url();els.testMessage.textContent='';els.modal.classList.remove('hidden')}
+  function startTracking(){stopTracking();if(!visit||!navigator.geolocation)return;watchId=navigator.geolocation.watchPosition(p=>{const pos=positionObject(p),g=gpsSummary(pos,storeConfig(visit.loja));lastGps=pos;setGpsUi(pos,g.status,g.distance);const interval=Math.max(30,n(systemConfig.intervaloGps||60))*1000;if(Date.now()-lastPingAt>=interval)sendPing(pos,g)},()=>{},{enableHighAccuracy:true,maximumAge:15000,timeout:20000})}
+  function stopTracking(){if(watchId!=null&&navigator.geolocation){navigator.geolocation.clearWatch(watchId);watchId=null}}
+  async function sendPing(pos,g,final=false){if(!visit||!visit.token||!apiUrl()||!navigator.onLine)return;lastPingAt=Date.now();try{await fetch(endpoint('ping'),{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({token:visit.token,visitId:visit.id,codigo:session.codigo,loja:visit.loja,gps:pos,gpsStatus:g.status,distance:g.distance,final}),cache:'no-store'})}catch{}}
+
+  function renderCount(savedItems){els.countMessage.textContent='';const rows=storeRows();els.products.innerHTML=rows.map(r=>{const sv=(savedItems||[]).find(x=>x.produto===r.produto)||{},m=productMeta(r.produto);return `<article class="product-card" data-product="${esc(r.produto)}"><div class="product-top product-with-image"><img class="product-photo" src="${esc(m.image)}" alt="${esc(m.official)}" loading="lazy"><div class="product-title"><h3>${esc(r.produto)}</h3><div class="product-ident">${esc(m.official)} · ${esc(m.weight)} · cód. ${esc(m.code)}</div><div class="product-table-price">Tabela: <strong>${money2(m.price)}</strong>/un. · caixa ${fmt(m.box)} un.</div></div><div class="last-data">Último estoque: <strong>${fmt(r.estoqueAtual)}</strong><br>Último pedido: <strong>${fmt(r.ultimoPedido)}</strong></div></div><label class="stock-box"><span>ESTOQUE NA LOJA AGORA</span><div class="stock-line"><input class="stock-input" data-product="${esc(r.produto)}" type="number" min="0" step="1" inputmode="numeric" value="${esc(sv.estoque||'')}" placeholder="0" required><small>unidades</small></div></label><details class="occurrence"><summary>Validade / trocas (se houver)</summary><div class="occ-grid"><div class="occ-field"><label>Trocas/devoluções</label><input class="returns-input small-input" type="number" min="0" step="1" inputmode="numeric" value="${esc(sv.trocas||'0')}"></div><div class="occ-field"><label class="inline-check"><input class="expiry-check" type="checkbox" ${sv.vencimento?'checked':''}> Produto próximo do vencimento</label><input class="expiry-input small-input ${sv.vencimento?'':'hidden'}" type="number" min="0" step="1" inputmode="numeric" value="${esc(sv.qtdVencimento||'0')}" placeholder="Quantidade próxima do vencimento"></div></div></details></article>`}).join('');
+    $$('.expiry-check').forEach(c=>c.addEventListener('change',()=>c.closest('.occ-field').querySelector('.expiry-input').classList.toggle('hidden',!c.checked)));restoreDraftInputs(savedItems);$$('.stock-input,.returns-input,.expiry-input').forEach(i=>i.addEventListener('input',saveDraft));$$('.expiry-check').forEach(i=>i.addEventListener('change',saveDraft))}
+  function collectCount(){const items=[],warnings=[];for(const card of $$('.product-card')){const input=card.querySelector('.stock-input'),raw=clean(input.value),val=Number(raw),prod=card.dataset.product;input.classList.remove('input-error');if(raw===''||!Number.isInteger(val)||val<0||val>99999){input.classList.add('input-error');input.focus();throw new Error('Preencha o estoque dos 5 produtos com números inteiros.')}const ret=Math.max(0,Math.round(n(card.querySelector('.returns-input').value))),exp=card.querySelector('.expiry-check').checked,expQty=exp?Math.max(0,Math.round(n(card.querySelector('.expiry-input').value))):0;const base=stateRows.find(r=>r.cliente===els.client.value&&r.produto===prod);if(base){const limit=Math.max(base.estoqueIdeal*2.2,base.estoqueAtual*3,120);if(val>limit)warnings.push(`${prod}: ${val} unidades (muito acima do padrão)`)}items.push({produto:prod,estoqueAtual:val,trocas:ret,proximoVencimento:exp,qtdProximoVencimento:expQty})}if(items.length!==5)throw new Error('Os 5 produtos precisam estar cadastrados nesta loja.');return {items,warnings}}
+  function demoCalculate(items){const id=visit?.id||`DEMO-${Date.now()}`,rows=items.map(it=>{const base=stateRows.find(r=>r.cliente===els.client.value&&r.produto===it.produto),prev=base.estoqueAtual,prevOrder=base.ultimoPedido,venda=Math.max(0,Math.round(prev+prevOrder-it.estoqueAtual-it.trocas)),sug=Math.max(0,Math.round(base.estoqueIdeal-it.estoqueAtual));return {...base,...it,estoqueAnterior:prev,pedidoAnterior:prevOrder,vendaEstimada:venda,sugestao:sug,visitId:id}});return {ok:true,visitId:id,rows}}
+  async function calculate(e){e.preventDefault();els.countMessage.textContent='';let payload;try{payload=collectCount();if(payload.warnings.length&&!confirm(`Confira estes valores antes de continuar:\n\n${payload.warnings.join('\n')}\n\nOs estoques estão corretos?`))return}catch(err){els.countMessage.textContent=err.message;return}if(!navigator.onLine&&apiUrl()){els.countMessage.textContent='Sem internet. O preenchimento ficou salvo; conecte-se para calcular o pedido.';saveDraft();return}els.calculateBtn.disabled=true;els.calculateBtn.textContent='CALCULANDO...';try{let data;if(!apiUrl())data=demoCalculate(payload.items);else{const g=gpsSummary(lastGps,storeConfig(els.client.value));const res=await fetch(endpoint('calcular'),{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8','Accept':'application/json'},body:JSON.stringify({codigo:session.codigo,loja:els.client.value,visitId:visit?.id,visitToken:visit?.token,gps:lastGps,gpsStatus:g.status,distance:g.distance,itens:payload.items}),cache:'no-store'});data=await jsonResponse(res);if(!res.ok||data.ok===false)throw new Error(data.error||'Não foi possível calcular.')}calculated=normalizeState(data.rows).map(r=>{const raw=data.rows.find(x=>clean(x.produto??x.Produto)===r.produto)||{};const original=payload.items.find(x=>x.produto===r.produto)||{};return {...r,...original,estoqueAnterior:n(raw.estoqueAnterior??raw['Estoque Anterior']),pedidoAnterior:n(raw.pedidoAnterior??raw['Pedido Anterior']),visitId:data.visitId||visit?.id}});renderReview()}catch(e){els.countMessage.textContent=e.message||'Erro ao calcular o pedido.'}finally{els.calculateBtn.disabled=false;els.calculateBtn.textContent='CALCULAR PEDIDO'}}
+  function renderReview(){els.countView.classList.add('hidden');els.reviewView.classList.remove('hidden');els.successView.classList.add('hidden');els.reviewList.innerHTML=calculated.map(r=>{const m=productMeta(r.produto),orderValue=Math.max(0,Math.round(r.sugestao))*m.price;return `<article class="review-card" data-product="${esc(r.produto)}"><div class="review-card-head product-with-image review-product-head"><img class="product-photo small" src="${esc(m.image)}" alt="${esc(m.official)}" loading="lazy"><div class="product-title"><h3>${esc(r.produto)}</h3><div class="product-ident">${esc(m.official)} · ${esc(m.weight)} · cód. ${esc(m.code)}</div><div class="review-meta">Estoque contado: <b>${fmt(r.estoqueAtual)}</b>${r.qtdProximoVencimento?` · Próximo do vencimento: <b>${fmt(r.qtdProximoVencimento)}</b>`:''}</div></div></div><div class="recommend-explain"><div class="explain-item"><span>ESTOQUE</span><strong>${fmt(r.estoqueAtual)}</strong></div><div class="explain-item"><span>MÉDIA / SEMANA</span><strong>${fmt(r.mediaVendasSemanal)}</strong></div><div class="explain-item"><span>IDEAL</span><strong>${fmt(r.estoqueIdeal)}</strong></div><div class="explain-item"><span>TROCAS</span><strong>${fmt(r.trocas)}</strong></div></div><div class="recommended"><span>PEDIDO RECOMENDADO</span><strong>${r.sugestao>0?fmt(r.sugestao):'NÃO PEDIR'}</strong><small>${r.sugestao>0?`≈ ${money2(orderValue)} a preço de tabela`:''}</small></div><div class="order-edit"><label>PEDIDO QUE VOU FAZER</label><div class="order-row"><input class="order-input" type="number" min="0" step="1" inputmode="numeric" value="${Math.round(r.sugestao)}" data-suggestion="${Math.round(r.sugestao)}" data-product="${esc(r.produto)}"><span class="delta-pill ok">Igual à sugestão</span></div><div class="deviation-reason hidden"><label>Por que o pedido é diferente da recomendação?</label><select class="reason-select"><option value="">Selecione o motivo</option>${REASONS.map(x=>`<option>${esc(x)}</option>`).join('')}</select><input class="other-reason hidden" type="text" maxlength="140" placeholder="Explique brevemente"></div></div></article>`}).join('');$$('.order-input').forEach(i=>i.addEventListener('input',updateReviewTotals));$$('.reason-select').forEach(s=>s.addEventListener('change',()=>{s.parentElement.querySelector('.other-reason').classList.toggle('hidden',s.value!=='Outro')}));els.checkValidity.checked=false;els.checkReturns.checked=false;els.checkOrder.checked=false;updateReviewTotals();window.scrollTo({top:0,behavior:'smooth'})}
+  function updateReviewTotals(){let sug=0,conf=0;$$('.order-input').forEach(input=>{const s=n(input.dataset.suggestion),v=Math.max(0,Math.round(n(input.value)));sug+=s;conf+=v;const d=v-s,thr=Math.max(5,s*.15),pill=input.closest('.order-row').querySelector('.delta-pill'),reason=input.closest('.review-card').querySelector('.deviation-reason'),needs=Math.abs(d)>thr;pill.className='delta-pill '+(!needs?'ok':d>0?'high':'warn');pill.textContent=d===0?'Igual à sugestão':`${d>0?'+':''}${fmt(d)} vs. sugestão`;reason.classList.toggle('hidden',!needs)});const diff=conf-sug;els.suggestedTotal.textContent=fmt(sug);els.confirmedTotal.textContent=fmt(conf);els.deviationTotal.textContent=`${diff>0?'+':''}${fmt(diff)}`;els.deviationBox.className='deviation '+(Math.abs(diff)<=Math.max(5,sug*.05)?'ok':diff>Math.max(15,sug*.15)?'high':'warn')}
+  function acceptAll(){$$('.order-input').forEach(i=>i.value=Math.round(n(i.dataset.suggestion)));$$('.reason-select').forEach(s=>s.value='');$$('.other-reason').forEach(i=>{i.value='';i.classList.add('hidden')});updateReviewTotals()}
+  function collectOrder(){if(!els.checkValidity.checked||!els.checkReturns.checked||!els.checkOrder.checked)throw new Error('Conclua os 3 itens do checklist antes de confirmar.');const items=[];for(const input of $$('.order-input')){const v=Number(clean(input.value));if(!Number.isInteger(v)||v<0||v>99999){input.classList.add('input-error');input.focus();throw new Error('Confira as quantidades do pedido.')}const base=calculated.find(r=>r.produto===input.dataset.product),diff=v-base.sugestao,needs=Math.abs(diff)>Math.max(5,base.sugestao*.15),card=input.closest('.review-card'),reasonSel=card.querySelector('.reason-select'),other=clean(card.querySelector('.other-reason').value);let reason=needs?clean(reasonSel.value):'';if(needs&&!reason)throw new Error(`Informe o motivo do desvio em ${base.produto}.`);if(reason==='Outro'&&!other)throw new Error(`Explique o motivo do desvio em ${base.produto}.`);if(reason==='Outro')reason=`Outro: ${other}`;items.push({produto:base.produto,estoqueAtual:Math.round(base.estoqueAtual),sugestao:Math.round(base.sugestao),pedidoConfirmado:v,vendaEstimada:Math.round(base.vendaEstimada||0),trocas:Math.round(base.trocas||0),proximoVencimento:!!base.proximoVencimento,qtdProximoVencimento:Math.round(base.qtdProximoVencimento||0),motivoDesvio:reason})}return items}
+  async function confirmOrder(){els.confirmMessage.textContent='';let items;try{items=collectOrder()}catch(e){els.confirmMessage.textContent=e.message;return}if(!navigator.onLine&&apiUrl()){els.confirmMessage.textContent='Sem internet. Conecte-se para registrar o pedido; seus dados continuam salvos.';return}els.confirmBtn.disabled=true;els.confirmBtn.textContent='CONFIRMANDO...';try{let data;const g=gpsSummary(lastGps,storeConfig(els.client.value)),checklist={estoqueConferido:true,validadeConferida:els.checkValidity.checked,trocasInformadas:els.checkReturns.checked,pedidoConferido:els.checkOrder.checked};if(!apiUrl())data={ok:true,protocol:visit?.id||`DEMO-${Date.now()}`,updatedAt:new Date().toISOString()};else{const res=await fetch(endpoint('confirmar'),{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8','Accept':'application/json'},body:JSON.stringify({codigo:session.codigo,loja:els.client.value,visitId:visit?.id,visitToken:visit?.token,gps:lastGps,gpsStatus:g.status,distance:g.distance,checklist,itens:items}),cache:'no-store'});data=await jsonResponse(res);if(!res.ok||data.ok===false)throw new Error(data.error||'Não foi possível confirmar o pedido.')}if(lastGps)await sendPing(lastGps,g,true);stopTracking();clearDraft();els.reviewView.classList.add('hidden');els.successView.classList.remove('hidden');els.protocol.textContent=data.protocol||visit?.id||'REGISTRADO';window.scrollTo({top:0,behavior:'smooth'})}catch(e){els.confirmMessage.textContent=e.message||'Erro ao confirmar o pedido.'}finally{els.confirmBtn.disabled=false;els.confirmBtn.textContent='CONFIRMAR PEDIDO'}}
+
+  function logout(){stopTracking();localStorage.removeItem('reposicao_v5_code');session=null;stateRows=[];storeConfigs=[];calculated=[];visit=null;els.mainView.classList.add('hidden');els.loginView.classList.remove('hidden');els.refresh.classList.add('hidden');els.accessCode.value='';els.loginMessage.textContent='';els.accessCode.focus()}
+  function openConfig(){els.apiUrl.value=apiUrl();els.testMessage.textContent='';els.modal.classList.remove('hidden')}
   function closeConfig(){els.modal.classList.add('hidden')}
-  els.loginForm.addEventListener('submit',e=>{e.preventDefault();login(els.accessCode.value)});els.logout.addEventListener('click',logout);els.client.addEventListener('change',startVisit);els.stockForm.addEventListener('submit',calculate);els.backToCount.addEventListener('click',()=>{els.reviewView.classList.add('hidden');els.countView.classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'})});els.confirmBtn.addEventListener('click',confirmOrder);els.newVisit.addEventListener('click',startVisit);els.refresh.addEventListener('click',()=>login(session?.codigo||code(),true));
-  [els.adminOpen,els.adminOpenLogin].forEach(b=>b.addEventListener('click',openConfig));els.adminClose.addEventListener('click',closeConfig);els.modal.addEventListener('click',e=>{if(e.target===els.modal)closeConfig()});els.saveConfig.addEventListener('click',()=>{const v=els.apiUrl.value.trim();if(v&&!/^https?:\/\//i.test(v)){els.testMessage.textContent='Informe uma URL completa começando com http ou https.';return}localStorage.setItem('reposicao_v4_seller_url',v||DEFAULT_API_URL);localStorage.removeItem('reposicao_v4_force_demo');els.testMessage.textContent='Configuração salva.';setTimeout(()=>location.reload(),500)});els.clearConfig.addEventListener('click',()=>{localStorage.removeItem('reposicao_v4_seller_url');localStorage.setItem('reposicao_v4_force_demo','1');els.testMessage.textContent='Modo demonstração ativado.';setTimeout(()=>location.reload(),500)});
-  const saved=code();if(saved)login(saved,true);else setTimeout(()=>els.accessCode.focus(),100);
+
+  els.loginForm.addEventListener('submit',e=>{e.preventDefault();login(els.accessCode.value)});els.logout.addEventListener('click',logout);els.client.addEventListener('change',resetVisit);els.startVisitBtn.addEventListener('click',()=>startVisit(false));els.gpsHelpBtn.addEventListener('click',()=>els.gpsHelpModal.classList.remove('hidden'));els.gpsHelpClose.addEventListener('click',()=>els.gpsHelpModal.classList.add('hidden'));els.gpsContinue.addEventListener('click',()=>startVisit(true));els.stockForm.addEventListener('submit',calculate);els.acceptAll.addEventListener('click',acceptAll);els.backToCount.addEventListener('click',()=>{els.reviewView.classList.add('hidden');els.countView.classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'})});els.confirmBtn.addEventListener('click',confirmOrder);els.newVisit.addEventListener('click',()=>{login(session.codigo,true).then(resetVisit)});els.refresh.addEventListener('click',()=>login(session?.codigo||savedCode(),true));
+  [els.adminOpen,els.adminOpenLogin].forEach(b=>b.addEventListener('click',openConfig));els.adminClose.addEventListener('click',closeConfig);els.modal.addEventListener('click',e=>{if(e.target===els.modal)closeConfig()});els.saveConfig.addEventListener('click',()=>{const v=els.apiUrl.value.trim();if(v&&!/^https?:\/\//i.test(v)){els.testMessage.textContent='Informe uma URL completa começando com http ou https.';return}localStorage.setItem('reposicao_v5_seller_url',v||DEFAULT_API_URL);localStorage.removeItem('reposicao_v5_force_demo');els.testMessage.textContent='Configuração salva.';setTimeout(()=>location.reload(),450)});els.clearConfig.addEventListener('click',()=>{localStorage.removeItem('reposicao_v5_seller_url');localStorage.setItem('reposicao_v5_force_demo','1');els.testMessage.textContent='Modo demonstração ativado.';setTimeout(()=>location.reload(),450)});
+
+  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;els.install.classList.remove('hidden')});els.install.addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;els.install.classList.add('hidden')});
+  if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+  const c=savedCode();if(c)login(c,true);else setTimeout(()=>els.accessCode.focus(),100);
 })();

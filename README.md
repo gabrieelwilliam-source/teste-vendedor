@@ -1,13 +1,29 @@
-# Site do Vendedor V4.1
+# Site do vendedor — V5.1 FR
 
-Compatível com `N8N_REPOSICAO_INTELIGENTE_V4.1_CORRIGIDO.json`.
+Versão de produção do PWA do vendedor.
 
-Fluxo: login → uma das 2 lojas → estoque dos 5 produtos → calcular → revisar → confirmar pedido.
+Principais recursos:
+- login por código;
+- acesso apenas às 2 lojas do vendedor;
+- QR Code por loja;
+- início de visita com GPS;
+- atualização de posição durante a visita;
+- fotos reais dos 5 produtos do catálogo FR;
+- identificação do SKU (nome oficial, peso, código interno e valor unitário de tabela);
+- contagem dos 5 produtos;
+- alerta de estoque fora do padrão;
+- trocas/devoluções e produtos próximos do vencimento;
+- recomendação automática;
+- aceitar todas as sugestões;
+- motivo obrigatório quando houver desvio relevante;
+- checklist antes da confirmação;
+- PWA instalável e cache do preenchimento.
 
-Configuração: abra com `?config=1` e informe a Production URL:
-`https://SEU-N8N/webhook/reposicao-vendedor`
+## Publicação
+Substitua os arquivos do repositório do site do vendedor por todo o conteúdo desta pasta, inclusive `assets/products`.
 
-O site deriva automaticamente `/reposicao-vendedor-calcular` e `/reposicao-vendedor-confirmar`.
+A URL padrão do n8n continua:
+`https://app.vps7376.panel.icontainer.cloud/webhook/reposicao-vendedor`
 
-
-V4.5 PRODUÇÃO: já vem apontado para o webhook de produção do n8n. O modo demonstração só é usado se ativado explicitamente (?demo=1 ou botão de demonstração na configuração).
+## Observação sobre valores
+Os valores mostrados são **valores unitários de tabela** da `TABELA FR PADRAO 26.06.26`, não foram tratados como custo contábil.

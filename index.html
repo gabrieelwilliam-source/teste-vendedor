@@ -1,117 +1,125 @@
-<!-- Reposicao Inteligente V4.2 - Site Vendedor -->
 <!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f5f7fb">
-  <title>Reposição Inteligente</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1739">
+  <meta name="description" content="Reposição inteligente para contagem de estoque, pedido recomendado e validação de visita.">
+  <title>Reposição Inteligente FR</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <main class="app-shell">
-    <header class="brandbar">
-      <div class="brandmark" aria-hidden="true">R</div>
-      <div class="brandcopy">
-        <span>REPOSIÇÃO INTELIGENTE</span>
-        <strong>Pedido da loja</strong>
-      </div>
-      <button id="refreshBtn" class="icon-btn hidden" type="button" aria-label="Atualizar dados">↻</button>
+    <header class="topbar">
+      <div class="brandmark"><img src="assets/products/fr-logo.webp" alt="FR Distribuidora"></div>
+      <div class="brandcopy"><span>REPOSIÇÃO INTELIGENTE</span><strong>Pedido da loja</strong></div>
+      <button id="installBtn" class="ghost hidden" type="button">Instalar</button>
+      <button id="refreshBtn" class="icon-btn hidden" type="button" aria-label="Atualizar">↻</button>
     </header>
 
-    <section id="loginView" class="login-panel">
-      <div class="login-symbol" aria-hidden="true">✓</div>
-      <p class="overline">ACESSO DO VENDEDOR</p>
+    <section id="loginView" class="panel login-panel">
+      <div class="login-icon">✓</div>
+      <p class="eyebrow">ACESSO DO VENDEDOR</p>
       <h1>Digite seu código</h1>
       <p class="lead">Use os 6 números fornecidos pela empresa.</p>
       <form id="loginForm" class="login-form">
         <label for="accessCode">Código de acesso</label>
         <input id="accessCode" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="000000">
-        <button type="submit" class="primary big">ENTRAR</button>
+        <button class="primary xl" type="submit">ENTRAR</button>
       </form>
       <p id="loginMessage" class="message" role="status"></p>
-      <button id="adminOpenLogin" class="config-link hidden" type="button">Configurar conexão</button>
+      <button id="adminOpenLogin" class="text-link hidden" type="button">Configurar conexão</button>
     </section>
 
     <section id="mainView" class="hidden">
-      <div class="seller-strip">
-        <div>
-          <span>VENDEDOR</span>
-          <strong id="sellerName">—</strong>
-        </div>
-        <button id="logoutBtn" type="button" class="secondary">Trocar vendedor</button>
-      </div>
-
-      <div id="demoNotice" class="demo-notice"><span></span> Modo demonstração</div>
-
-      <section id="stepStore" class="step-card">
-        <div class="step-heading"><span class="step-number">1</span><div><p>PRIMEIRO</p><h2>Escolha a loja</h2></div></div>
-        <label class="field-label" for="clientSelect">Loja que você está visitando</label>
-        <select id="clientSelect" class="large-select"></select>
+      <section class="seller-strip">
+        <div><span>VENDEDOR</span><strong id="sellerName">—</strong></div>
+        <div class="seller-actions"><span id="networkBadge" class="badge ok">Online</span><button id="logoutBtn" class="secondary" type="button">Trocar vendedor</button></div>
       </section>
 
-      <section id="countView">
+      <div id="demoNotice" class="demo-notice hidden">Modo demonstração</div>
+      <div id="offlineNotice" class="offline-notice hidden">Sem internet. Seu preenchimento ficará salvo neste aparelho até a conexão voltar.</div>
+
+      <section class="panel step-panel">
+        <div class="step-head"><span class="step-num">1</span><div><p>PRIMEIRO</p><h2>Escolha a loja</h2></div></div>
+        <label for="clientSelect">Loja que você está visitando</label>
+        <select id="clientSelect" class="big-select"></select>
+        <div id="qrHint" class="hint hidden"></div>
+      </section>
+
+      <section id="checkinView" class="panel location-panel">
+        <div class="step-head"><span class="step-num">2</span><div><p>CONFIRME SUA PRESENÇA</p><h2>Iniciar visita</h2></div></div>
+        <p class="location-copy">Ao iniciar, o celular registra sua localização para confirmar a visita. A localização é acompanhada somente enquanto esta visita estiver ativa.</p>
+        <div id="gpsStatus" class="gps-status neutral"><div class="gps-dot"></div><div><strong>GPS ainda não verificado</strong><span>Toque no botão abaixo quando estiver na loja.</span></div></div>
+        <button id="startVisitBtn" class="primary xl" type="button">INICIAR VISITA NESTA LOJA</button>
+        <button id="gpsHelpBtn" class="text-link" type="button">Não consigo usar o GPS</button>
+        <div id="checkinMessage" class="message"></div>
+      </section>
+
+      <section id="countView" class="hidden">
         <section class="instruction-card">
-          <span class="step-number">2</span>
-          <div><p>AGORA</p><h2>Conte o estoque</h2><span>Digite quantas unidades existem na loja neste momento.</span></div>
+          <span class="step-num">3</span><div><p>AGORA</p><h2>Conte o estoque</h2><span>Preencha os 5 produtos. Validade e trocas só precisam ser informadas quando houver ocorrência.</span></div>
         </section>
         <form id="stockForm">
           <div id="productsList" class="products-list"></div>
-          <div id="countMessage" class="message" role="status"></div>
-          <div class="sticky-action">
-            <button id="calculateBtn" type="submit" class="primary huge">CALCULAR PEDIDO</button>
-          </div>
+          <div id="countMessage" class="message"></div>
+          <div class="sticky-action"><button id="calculateBtn" class="primary huge" type="submit">CALCULAR PEDIDO</button></div>
         </form>
       </section>
 
       <section id="reviewView" class="hidden">
         <section class="instruction-card success-tone">
-          <span class="step-number">3</span>
-          <div><p>PEDIDO CALCULADO</p><h2>Confira e confirme</h2><span>O sistema já colocou a quantidade recomendada. Altere somente se for necessário.</span></div>
+          <span class="step-num">4</span><div><p>PEDIDO CALCULADO</p><h2>Confira e confirme</h2><span>O sistema já preencheu a recomendação. Altere apenas se houver um motivo.</span></div>
         </section>
+
+        <div class="review-toolbar"><button id="acceptAllBtn" class="secondary strong" type="button">USAR TODAS AS SUGESTÕES</button><span>Você ainda pode ajustar produtos individualmente.</span></div>
         <div id="reviewList" class="review-list"></div>
+
+        <section class="panel checklist-panel">
+          <p class="eyebrow">CHECKLIST DA VISITA</p>
+          <h3>Antes de confirmar</h3>
+          <label class="check-row"><input id="checkValidity" type="checkbox"><span>Conferi a validade dos produtos</span></label>
+          <label class="check-row"><input id="checkReturns" type="checkbox"><span>Informei trocas/devoluções quando existiam</span></label>
+          <label class="check-row"><input id="checkOrder" type="checkbox"><span>Revisei o pedido final</span></label>
+        </section>
+
         <div class="review-summary">
           <div><span>Total recomendado</span><strong id="suggestedTotal">0</strong></div>
-          <div><span>Total que será pedido</span><strong id="confirmedTotal">0</strong></div>
+          <div><span>Total do pedido</span><strong id="confirmedTotal">0</strong></div>
           <div id="deviationBox" class="deviation ok"><span>Diferença</span><strong id="deviationTotal">0</strong></div>
         </div>
-        <div id="confirmMessage" class="message" role="status"></div>
-        <div class="review-actions">
-          <button id="backToCount" type="button" class="secondary big">CORRIGIR ESTOQUE</button>
-          <button id="confirmOrderBtn" type="button" class="primary huge">CONFIRMAR PEDIDO</button>
-        </div>
+        <div id="confirmMessage" class="message"></div>
+        <div class="review-actions"><button id="backToCount" class="secondary xl" type="button">CORRIGIR ESTOQUE</button><button id="confirmOrderBtn" class="primary huge" type="button">CONFIRMAR PEDIDO</button></div>
       </section>
 
-      <section id="successView" class="success-panel hidden" aria-live="polite">
-        <div class="success-icon">✓</div>
-        <p class="overline">PEDIDO REGISTRADO</p>
-        <h2>Pronto!</h2>
-        <p>O estoque e o pedido foram enviados para o sistema.</p>
+      <section id="successView" class="panel success-panel hidden">
+        <div class="success-icon">✓</div><p class="eyebrow">VISITA REGISTRADA</p><h2>Pronto!</h2>
+        <p>Estoque, pedido, checklist e dados da visita foram enviados.</p>
         <div class="protocol"><span>Protocolo</span><strong id="protocolValue">—</strong></div>
-        <button id="newVisitBtn" type="button" class="primary big">FAZER OUTRA LOJA</button>
+        <button id="newVisitBtn" class="primary xl" type="button">FAZER OUTRA LOJA</button>
       </section>
 
-      <footer class="footer">
-        <span id="updatedAt">Dados ainda não atualizados</span>
-        <button id="adminOpen" class="config-link hidden" type="button">Configurar</button>
-      </footer>
+      <footer class="footer"><span id="updatedAt">Dados ainda não atualizados</span><button id="adminOpen" class="text-link hidden" type="button">Configurar</button></footer>
     </section>
   </main>
 
+  <div id="gpsHelpModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <p class="eyebrow">LOCALIZAÇÃO</p><h2>Não foi possível validar o GPS</h2>
+      <p>Ative a permissão de localização do navegador. Se ainda assim não funcionar, você pode continuar e a visita ficará marcada para conferência do gestor.</p>
+      <label>Motivo<input id="gpsNoReason" type="text" maxlength="120" placeholder="Ex.: celular sem sinal de GPS"></label>
+      <div class="modal-actions"><button id="gpsHelpClose" class="secondary" type="button">Voltar</button><button id="gpsContinue" class="primary" type="button">CONTINUAR SEM GPS</button></div>
+    </div>
+  </div>
+
   <div id="adminModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
-      <p class="overline">CONFIGURAÇÃO TÉCNICA</p>
-      <h2>Conectar ao n8n</h2>
-      <p>Informe somente a URL de consulta. Os endereços de cálculo e confirmação são montados automaticamente.</p>
-      <label>Webhook do vendedor
-        <input id="apiUrl" type="url" placeholder="https://seu-n8n/webhook/reposicao-vendedor">
-      </label>
+      <p class="eyebrow">CONFIGURAÇÃO TÉCNICA</p><h2>Conectar ao n8n</h2>
+      <label>Webhook do vendedor<input id="apiUrl" type="url" placeholder="https://seu-n8n/webhook/reposicao-vendedor"></label>
       <div id="testMessage" class="message"></div>
-      <div class="modal-actions">
-        <button id="clearConfig" class="secondary" type="button">Usar demonstração</button>
-        <button id="adminClose" class="secondary" type="button">Cancelar</button>
-        <button id="saveConfig" class="primary" type="button">Salvar</button>
-      </div>
+      <div class="modal-actions"><button id="clearConfig" class="secondary" type="button">Demonstração</button><button id="adminClose" class="secondary" type="button">Cancelar</button><button id="saveConfig" class="primary" type="button">Salvar</button></div>
     </div>
   </div>
 
