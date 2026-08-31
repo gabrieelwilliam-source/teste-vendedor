@@ -1,10 +1,12 @@
-VERSÃO V5.1.2
+REPOSIÇÃO INTELIGENTE V5.2 — ROTAS
 
-Correções:
-- imagens FR e produtos embutidas diretamente em PNG no index.html;
-- remove caches/service workers antigos na primeira abertura;
-- troca Loja 01 <-> Loja 02 corrigida antes do início da visita;
-- loja bloqueada após iniciar visita para impedir mistura de dados;
-- versão visível no rodapé: v5.1.2.
+1. Execute ATIVAR_ROTAS_V5_2.gs na planilha atual.
+2. Importe/ative o workflow V5.2.
+3. Substitua o index.html do site do vendedor por este.
 
-No GitHub Pages, substitua o index.html pelo deste pacote. Os demais arquivos não são necessários para esta versão de estabilização.
+Novo:
+- Iniciar/encerrar expediente.
+- GPS de jornada continua entre Loja 01 e Loja 02 enquanto o site estiver aberto.
+- Pedido confirmado vira um evento na rota.
+- Loja continua bloqueada durante uma visita.
+- Imagens seguem embutidas no HTML.
