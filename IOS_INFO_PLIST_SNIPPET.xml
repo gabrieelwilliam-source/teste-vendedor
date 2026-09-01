@@ -1,0 +1,9 @@
+<!-- Adicione dentro de <dict> em ios/App/App/Info.plist -->
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>Usamos sua localização durante o expediente para registrar visitas e o trajeto de trabalho.</string>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>Com o expediente ativo, a localização pode continuar sendo registrada em segundo plano para compor a rota de trabalho.</string>
+<key>UIBackgroundModes</key>
+<array>
+  <string>location</string>
+</array>
